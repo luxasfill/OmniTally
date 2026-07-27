@@ -12,3 +12,18 @@ fastlane/report.xml
 Gemfile*
 *.sh
 !generate-changelogs.sh
+
+# Signing
+release-keystore.jks
+
+# Build artifacts
+app/obfuscation/
+app/build/
+app/release/
+
+# Generated reports
+release-report.txt
+code-review-recommendations.txt
+
+# APK output
+*.apk

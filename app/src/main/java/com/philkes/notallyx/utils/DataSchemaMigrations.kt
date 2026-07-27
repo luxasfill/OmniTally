@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteBlobTooBigException
 import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.dao.BaseNoteDao.Companion.MAX_BODY_CHAR_LENGTH
 import com.philkes.notallyx.data.model.Type
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.utils.NoteRepairUtils.truncateBodyAndFixSpans
 import com.philkes.notallyx.utils.NoteSplitUtils.splitOversizedExistingNoteForMigration
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +21,7 @@ const val LATEST_DATA_SCHEMA = 2
  * Returns true if any migration work was executed.
  */
 suspend fun Application.runMigrations(onProgressTitle: (Int) -> Unit = {}): Boolean {
-    val preferences = NotallyXPreferences.getInstance(this)
+    val preferences = OmniTallyPreferences.getInstance(this)
     val dataSchemaId = preferences.dataSchemaId.value
     var newDataSchemaId = dataSchemaId
     var didWork = false
@@ -46,7 +46,7 @@ suspend fun Application.runMigrations(onProgressTitle: (Int) -> Unit = {}): Bool
     return didWork
 }
 
-private fun Application.moveAttachments(preferences: NotallyXPreferences) {
+private fun Application.moveAttachments(preferences: OmniTallyPreferences) {
     val toPrivate = !preferences.dataInPublicFolder.value
     log(
         TAG,

@@ -13,7 +13,7 @@ import com.philkes.notallyx.presentation.view.note.listitem.init
 import com.philkes.notallyx.presentation.view.note.listitem.sorting.SortedItemsList
 import com.philkes.notallyx.presentation.viewmodel.preference.EnumPreference
 import com.philkes.notallyx.presentation.viewmodel.preference.ListItemSort
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.callback
 import com.philkes.notallyx.presentation.viewmodel.preference.isAutoSortChecked
 import com.philkes.notallyx.test.assertChildren
@@ -40,7 +40,7 @@ open class ListManagerTestBase {
     protected lateinit var inputMethodManager: InputMethodManager
     protected lateinit var changeHistory: ChangeHistory
     protected lateinit var listItemVH: ListItemVH
-    protected lateinit var preferences: NotallyXPreferences
+    protected lateinit var preferences: OmniTallyPreferences
     protected lateinit var listItemDragCallback: ListItemDragCallback
     private lateinit var itemsInternal: MutableList<ListItem>
     protected var itemsChecked: SortedItemsList? = null
@@ -58,7 +58,7 @@ open class ListManagerTestBase {
         inputMethodManager = mock(InputMethodManager::class.java)
         changeHistory = ChangeHistory()
         listItemVH = mock(ListItemVH::class.java)
-        preferences = mock(NotallyXPreferences::class.java)
+        preferences = mock(OmniTallyPreferences::class.java)
         listManager =
             ListManager(recyclerView, changeHistory, preferences, inputMethodManager, {}, {}, null)
         // Prepare view holder

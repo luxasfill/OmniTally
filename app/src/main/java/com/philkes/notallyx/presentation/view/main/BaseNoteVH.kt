@@ -17,6 +17,7 @@ import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
+import com.bumptech.glide.signature.ObjectKey
 import com.philkes.notallyx.R
 import com.philkes.notallyx.data.model.BaseNote
 import com.philkes.notallyx.data.model.FileAttachment
@@ -105,7 +106,13 @@ class BaseNoteVH(
         binding.root.isChecked = checked
     }
 
-    fun bind(baseNote: BaseNote, imageRoot: File?, checked: Boolean, sortBy: NotesSortBy) {
+    fun bind(
+        baseNote: BaseNote,
+        imageRoot: File?,
+        drawingsRoot: File? = null,
+        checked: Boolean,
+        sortBy: NotesSortBy,
+    ) {
         updateCheck(checked, baseNote.color)
 
         when (baseNote.type) {
@@ -126,6 +133,7 @@ class BaseNoteVH(
 
         setImages(baseNote.images, imageRoot)
         setFiles(baseNote.files)
+        setDrawings(baseNote.drawings, drawingsRoot)
 
         binding.Title.apply {
             isVisible = baseNote.title.isNotEmpty()
@@ -318,7 +326,7 @@ class BaseNoteVH(
                         .load(file)
                         .centerCrop()
                         .transition(DrawableTransitionOptions.withCrossFade())
-                        .diskCacheStrategy(DiskCacheStrategy.NONE)
+                        .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
                         .listener(
                             object : RequestListener<Drawable> {
 
@@ -383,6 +391,59 @@ class BaseNoteVH(
                 }
             } else {
                 FileViewLayout.visibility = GONE
+            }
+        }
+    }
+
+    private fun setDrawings(drawings: List<FileAttachment>, drawingsRoot: File?) {
+        binding.apply {
+            if (drawings.isNotEmpty() && drawingsRoot != null) {
+                DrawingLayout.visibility = VISIBLE
+                val firstDrawing = drawings[0]
+                val file = File(drawingsRoot, firstDrawing.localName)
+                if (file.exists()) {
+                    DrawingMessage.visibility = GONE
+                    Glide.with(DrawingImage.context)
+                        .load(file)
+                        .signature(ObjectKey(file.lastModified()))
+                        .centerCrop()
+                        .transition(DrawableTransitionOptions.withCrossFade())
+                        .diskCacheStrategy(DiskCacheStrategy.RESOURCE)
+                        .listener(
+                            object : RequestListener<Drawable> {
+                                override fun onLoadFailed(
+                                    e: GlideException?,
+                                    model: Any?,
+                                    target: Target<Drawable>?,
+                                    isFirstResource: Boolean,
+                                ): Boolean {
+                                    DrawingMessage.visibility = VISIBLE
+                                    return false
+                                }
+
+                                override fun onResourceReady(
+                                    resource: Drawable?,
+                                    model: Any?,
+                                    target: Target<Drawable>?,
+                                    dataSource: DataSource?,
+                                    isFirstResource: Boolean,
+                                ): Boolean {
+                                    return false
+                                }
+                            }
+                        )
+                        .into(DrawingImage)
+                } else {
+                    DrawingMessage.visibility = VISIBLE
+                    Glide.with(DrawingImage.context).clear(DrawingImage)
+                }
+                DrawingMore.apply {
+                    text = drawings.size.toString()
+                    visibility = if (drawings.size > 1) VISIBLE else GONE
+                }
+            } else {
+                DrawingLayout.visibility = GONE
+                Glide.with(DrawingImage.context).clear(DrawingImage)
             }
         }
     }

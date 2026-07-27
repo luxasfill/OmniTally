@@ -33,9 +33,11 @@ import com.philkes.notallyx.data.model.parseToColorString
 import com.philkes.notallyx.presentation.showToast
 import com.philkes.notallyx.presentation.view.misc.Progress
 import com.philkes.notallyx.presentation.viewmodel.NotallyModel.FileType
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.Constants.PASSWORD_EMPTY
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.utils.FileError
 import com.philkes.notallyx.utils.SUBFOLDER_AUDIOS
+import com.philkes.notallyx.utils.SUBFOLDER_DRAWINGS
 import com.philkes.notallyx.utils.SUBFOLDER_FILES
 import com.philkes.notallyx.utils.SUBFOLDER_IMAGES
 import com.philkes.notallyx.utils.cancelPinAndReminders
@@ -43,6 +45,7 @@ import com.philkes.notallyx.utils.clearDirectory
 import com.philkes.notallyx.utils.copyToFile
 import com.philkes.notallyx.utils.determineMimeTypeAndExtension
 import com.philkes.notallyx.utils.getCurrentAudioDirectory
+import com.philkes.notallyx.utils.getCurrentDrawingsDirectory
 import com.philkes.notallyx.utils.getCurrentFilesDirectory
 import com.philkes.notallyx.utils.getCurrentImagesDirectory
 import com.philkes.notallyx.utils.getFileName
@@ -53,7 +56,7 @@ import com.philkes.notallyx.utils.rename
 import com.philkes.notallyx.utils.security.SQLCipherUtils
 import com.philkes.notallyx.utils.security.decryptDatabase
 import com.philkes.notallyx.utils.toMessage
-import com.philkes.notallyx.utils.toNotallyXReminder
+import com.philkes.notallyx.utils.toOmniTallyReminder
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
@@ -69,7 +72,10 @@ import org.json.JSONObject
 
 private const val TAG = "ImportExtensions"
 
+private val ALLOWED_TABLE_NAMES = setOf("BaseNote", "Label")
+
 fun getOptionalColumns(db: SQLiteDatabase, tableName: String): Array<String> {
+    require(tableName in ALLOWED_TABLE_NAMES) { "Invalid table name: $tableName" }
     val existingColumns = mutableSetOf<String>()
 
     // 1. Get the actual columns currently in the DB
@@ -178,8 +184,28 @@ suspend fun ContextWrapper.importZip(
                 val tempZipFile = File(databaseFolder, "TEMP.zip")
                 stream.copyToFile(tempZipFile)
                 val zipFile = ZipFile(tempZipFile)
+
+                // Try to decrypt with combined internal+user key, internal key alone,
+                // or user password alone (backward compatibility)
                 if (zipFile.isEncrypted) {
-                    zipFile.setPassword(zipPassword.toCharArray())
+                    val preferences = OmniTallyPreferences.getInstance(this@importZip)
+                    val internalKey =
+                        try {
+                            preferences.getOrCreateBackupInternalKey()
+                        } catch (_: Exception) {
+                            ""
+                        }
+                    val decryptionSucceeded =
+                        tryDecryptZip(zipFile, internalKey, zipPassword, databaseFolder) ||
+                            (internalKey.isNotEmpty() &&
+                                tryDecryptZip(zipFile, internalKey, "", databaseFolder)) ||
+                            (zipPassword != PASSWORD_EMPTY &&
+                                tryDecryptZip(zipFile, "", zipPassword, databaseFolder))
+                    if (!decryptionSucceeded) {
+                        throw IllegalArgumentException(
+                            "Failed to decrypt backup with any available key"
+                        )
+                    }
                 }
                 zipFile.extractFile(
                     NotallyDatabase.DATABASE_NAME,
@@ -191,7 +217,7 @@ suspend fun ContextWrapper.importZip(
                 val state = SQLCipherUtils.getDatabaseState(dbFile)
                 if (state == SQLCipherUtils.State.ENCRYPTED) {
                     val fallbackEncryptionKey =
-                        NotallyXPreferences.getInstance(this@importZip)
+                        OmniTallyPreferences.getInstance(this@importZip)
                             .fallbackDatabaseEncryptionKey
                             .value
                     if (fallbackEncryptionKey != null) {
@@ -224,6 +250,7 @@ suspend fun ContextWrapper.importZip(
                 val imageRoot = getCurrentImagesDirectory()
                 val fileRoot = getCurrentFilesDirectory()
                 val audioRoot = getCurrentAudioDirectory()
+                val drawingsRoot = getCurrentDrawingsDirectory()
                 baseNotes.forEach { baseNote ->
                     importFiles(
                         baseNote.images,
@@ -238,6 +265,15 @@ suspend fun ContextWrapper.importZip(
                         baseNote.files,
                         SUBFOLDER_FILES,
                         fileRoot,
+                        zipFile,
+                        current,
+                        total,
+                        progress,
+                    )
+                    importFiles(
+                        baseNote.drawings,
+                        SUBFOLDER_DRAWINGS,
+                        drawingsRoot,
                         zipFile,
                         current,
                         total,
@@ -278,6 +314,27 @@ suspend fun ContextWrapper.importZip(
         }
     } finally {
         progress?.value = ImportProgress(inProgress = false)
+    }
+}
+
+private fun tryDecryptZip(
+    zipFile: ZipFile,
+    internalKey: String,
+    userPassword: String,
+    databaseFolder: File,
+): Boolean {
+    return try {
+        val effectivePassword =
+            if (userPassword.isNotEmpty()) "$internalKey:$userPassword" else internalKey
+        zipFile.setPassword(effectivePassword.toCharArray())
+        zipFile.extractFile(
+            NotallyDatabase.DATABASE_NAME,
+            databaseFolder.path,
+            NotallyDatabase.DATABASE_NAME,
+        )
+        true
+    } catch (_: Exception) {
+        false
     }
 }
 
@@ -356,8 +413,8 @@ private fun Cursor.toBaseNote(sourceDb: SQLiteDatabase): BaseNote {
             getString(getColumnIndexOrThrow("body"))
         } catch (_: SQLiteBlobTooBigException) {
             // Fall back to truncated read from source DB to avoid cursor window overflow
-            val cursor =
-                sourceDb.rawQuery(
+            sourceDb
+                .rawQuery(
                     "SELECT substr(body, 1, ?) AS body FROM BaseNote WHERE id = ?",
                     arrayOf(
                         com.philkes.notallyx.data.dao.BaseNoteDao.Companion.MAX_BODY_CHAR_LENGTH
@@ -365,9 +422,7 @@ private fun Cursor.toBaseNote(sourceDb: SQLiteDatabase): BaseNote {
                         id.toString(),
                     ),
                 )
-            val value = if (cursor.moveToFirst()) cursor.getString(0) else ""
-            cursor.close()
-            value
+                .use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else "" }
         }
     val spansTmp = getString(getColumnIndexOrThrow("spans"))
     val itemsTmp = getString(getColumnIndexOrThrow("items"))
@@ -414,6 +469,12 @@ private fun Cursor.toBaseNote(sourceDb: SQLiteDatabase): BaseNote {
             Converters.jsonToAudios(getString(audiosIndex))
         } else emptyList()
 
+    val drawingsIndex = getColumnIndex("drawings")
+    val drawings =
+        if (drawingsIndex != -1) {
+            Converters.jsonToFiles(getString(drawingsIndex))
+        } else emptyList()
+
     val remindersIndex = getColumnIndex("reminders")
     val reminders =
         if (remindersIndex != -1) {
@@ -422,7 +483,7 @@ private fun Cursor.toBaseNote(sourceDb: SQLiteDatabase): BaseNote {
             // Notally introduced "reminder" column
             val reminderIndex = getColumnIndex("reminder")
             if (reminderIndex != -1) {
-                val reminder = getString(reminderIndex).toNotallyXReminder()
+                val reminder = getString(reminderIndex).toOmniTallyReminder()
                 reminder?.let { listOf(it) } ?: emptyList()
             } else emptyList()
         }
@@ -451,12 +512,13 @@ private fun Cursor.toBaseNote(sourceDb: SQLiteDatabase): BaseNote {
         reminders,
         viewMode,
         pinnedToStatusBar,
+        drawings,
     )
 }
 
-private fun <T> Cursor.toList(convert: (cursor: Cursor) -> T): Pair<ArrayList<T>, Int> =
+private fun <T> Cursor.toList(convert: (cursor: Cursor) -> T): Pair<ArrayList<T>, Int> {
+    ConverterErrorReporter.enabled.set(false)
     try {
-        ConverterErrorReporter.enabled.set(false)
         val list = ArrayList<T>(count)
         var corrupted = 0
         while (moveToNext()) {
@@ -467,11 +529,12 @@ private fun <T> Cursor.toList(convert: (cursor: Cursor) -> T): Pair<ArrayList<T>
                 corrupted++
             }
         }
-        close()
-        Pair(list, corrupted)
+        return Pair(list, corrupted)
     } finally {
+        close()
         ConverterErrorReporter.enabled.set(true)
     }
+}
 
 fun Context.importPreferences(jsonFile: Uri, to: SharedPreferences.Editor): Boolean {
     try {
@@ -641,16 +704,17 @@ suspend fun ContextWrapper.importAudio(original: File, deleteOriginalFile: Boole
         */
         val name = "${UUID.randomUUID()}.m4a"
         val final = File(audioRoot, name)
-        val input = FileInputStream(original)
-        input.copyToFile(final)
+        FileInputStream(original).use { it.copyToFile(final) }
 
         if (deleteOriginalFile) {
             original.delete()
         }
 
-        val retriever = MediaMetadataRetriever()
-        retriever.setDataSource(final.path)
-        val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+        val duration =
+            MediaMetadataRetriever().use { retriever ->
+                retriever.setDataSource(final.path)
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            }
         Audio(name, duration?.toLong(), System.currentTimeMillis())
     }
 }

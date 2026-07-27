@@ -157,6 +157,8 @@ interface BaseNoteDao {
 
     @Query("SELECT audios FROM BaseNote") fun getAllAudios(): List<String>
 
+    @Query("SELECT drawings FROM BaseNote") fun getAllDrawings(): List<String>
+
     @Query("SELECT id, reminders FROM BaseNote WHERE reminders IS NOT NULL AND reminders != '[]'")
     suspend fun getAllReminders(): List<NoteIdReminder>
 
@@ -226,6 +228,9 @@ interface BaseNoteDao {
     @Query("UPDATE BaseNote SET items = :items WHERE id = :id")
     suspend fun updateItems(id: Long, items: List<ListItem>)
 
+    @Query("UPDATE BaseNote SET modifiedTimestamp = :modifiedTimestamp WHERE id = :id")
+    suspend fun updateTimestamp(id: Long, modifiedTimestamp: Long)
+
     @Query("UPDATE BaseNote SET images = :images WHERE id = :id")
     suspend fun updateImages(id: Long, images: List<FileAttachment>)
 
@@ -234,6 +239,14 @@ interface BaseNoteDao {
 
     @Query("UPDATE BaseNote SET audios = :audios WHERE id = :id")
     suspend fun updateAudios(id: Long, audios: List<Audio>)
+
+    @Query("UPDATE BaseNote SET drawings = :drawings WHERE id = :id")
+    suspend fun updateDrawings(id: Long, drawings: List<FileAttachment>)
+
+    @Query("SELECT drawings FROM BaseNote WHERE id = :id") suspend fun getDrawings(id: Long): String
+
+    @Query("SELECT drawings FROM BaseNote WHERE id IN (:ids)")
+    suspend fun getDrawings(ids: LongArray): List<String>
 
     @Query("UPDATE BaseNote SET reminders = :reminders WHERE id = :id")
     suspend fun updateReminders(id: Long, reminders: List<Reminder>)

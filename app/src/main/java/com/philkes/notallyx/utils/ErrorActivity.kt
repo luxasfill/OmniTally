@@ -23,7 +23,7 @@ import com.philkes.notallyx.presentation.setCancelButton
 import com.philkes.notallyx.presentation.setupProgressDialog
 import com.philkes.notallyx.presentation.showToast
 import com.philkes.notallyx.presentation.view.misc.Progress
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.utils.backup.BACKUP_TIMESTAMP_FORMATTER
 import com.philkes.notallyx.utils.backup.copyDatabase
 import com.philkes.notallyx.utils.backup.exportAsZip
@@ -88,7 +88,7 @@ class ErrorActivity : AppCompatActivity() {
                                 addCategory(Intent.CATEGORY_OPENABLE)
                                 putExtra(
                                     Intent.EXTRA_TITLE,
-                                    "NotallyX_Crash_Backup-${BACKUP_TIMESTAMP_FORMATTER.format(Date())}",
+                                    "OmniTally_Crash_Backup-${BACKUP_TIMESTAMP_FORMATTER.format(Date())}",
                                 )
                             }
                             .wrapWithChooser(this@ErrorActivity)
@@ -101,7 +101,7 @@ class ErrorActivity : AppCompatActivity() {
             registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
                 if (result.resultCode == RESULT_OK) {
                     result.data?.data?.let { uri ->
-                        val preferences = NotallyXPreferences.getInstance(this)
+                        val preferences = OmniTallyPreferences.getInstance(this)
                         val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
                             try {
                                 DocumentsContract.deleteDocument(contentResolver, uri)
@@ -127,7 +127,7 @@ class ErrorActivity : AppCompatActivity() {
                                                 addCategory(Intent.CATEGORY_OPENABLE)
                                                 putExtra(
                                                     Intent.EXTRA_TITLE,
-                                                    "NotallyX_Raw_Database-${
+                                                    "OmniTally_Raw_Database-${
                                                         BACKUP_TIMESTAMP_FORMATTER.format(
                                                             Date()
                                                         )

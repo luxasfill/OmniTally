@@ -2,6 +2,7 @@ import com.android.build.gradle.internal.tasks.factory.dependsOn
 import com.ncorti.ktfmt.gradle.tasks.KtfmtFormatTask
 import org.apache.commons.configuration2.PropertiesConfiguration
 import org.apache.commons.configuration2.io.FileHandler
+import java.util.Properties
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -21,7 +22,7 @@ android {
     compileSdk = 36
     ndkVersion = "29.0.13113456"
     defaultConfig {
-        applicationId = "com.philkes.notallyx"
+        applicationId = "com.philkes.omnitally"
         minSdk = 21
         targetSdk = 36
         versionCode = project.findProperty("app.versionCode").toString().toInt()
@@ -41,10 +42,18 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(providers.gradleProperty("RELEASE_STORE_FILE").get())
-            storePassword = providers.gradleProperty("RELEASE_STORE_PASSWORD").get()
-            keyAlias = providers.gradleProperty("RELEASE_KEY_ALIAS").get()
-            keyPassword = providers.gradleProperty("RELEASE_KEY_PASSWORD").get()
+            val localProps = Properties()
+            val localPropsFile = rootProject.file("local.properties")
+            if (localPropsFile.exists()) {
+                localPropsFile.inputStream().use { localProps.load(it) }
+            }
+            val storeFileProp = localProps.getProperty("RELEASE_STORE_FILE")
+            if (storeFileProp != null) {
+                storeFile = file(storeFileProp)
+                storePassword = localProps.getProperty("RELEASE_STORE_PASSWORD")
+                keyAlias = localProps.getProperty("RELEASE_KEY_ALIAS")
+                keyPassword = localProps.getProperty("RELEASE_KEY_PASSWORD")
+            }
         }
     }
 
@@ -52,7 +61,7 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-DEBUG"
-            resValue("string", "app_name", "NotallyX DEBUG")
+            resValue("string", "app_name", "OmniTally DEBUG")
         }
         release {
             isCrunchPngs = false
@@ -68,7 +77,7 @@ android {
             initWith(getByName("release"))
             applicationIdSuffix = ".beta"
             versionNameSuffix = "-BETA"
-            resValue("string", "app_name", "NotallyX BETA")
+            resValue("string", "app_name", "OmniTally BETA")
         }
     }
 
@@ -76,7 +85,7 @@ android {
         this.outputs
             .map { it as com.android.build.gradle.internal.api.ApkVariantOutputImpl }
             .forEach { output ->
-                output.outputFileName = "NotallyX-$versionName.apk"
+                output.outputFileName = "OmniTally-$versionName.apk"
             }
 
         if (buildType.isMinifyEnabled) {

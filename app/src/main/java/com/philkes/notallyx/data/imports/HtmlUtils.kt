@@ -42,6 +42,7 @@ fun parseBodyAndSpansFromHtml(
  * - `<b>` or `font-weight`>`400` -> [SpanRepresentation.bold]
  * - `<i>` or `font-style:italic` -> [SpanRepresentation.italic]
  * - `<s>` -> [SpanRepresentation.strikethrough]
+ * - `<u>` -> [SpanRepresentation.underline]
  * - `<a>` or text starting with `http` -> [SpanRepresentation.link]
  * - `<span>` with `font-family` includes `monospace` or `Source Code Pro` ->
  *   [SpanRepresentation.monospace]
@@ -76,6 +77,10 @@ private fun processElement(
 
                     "s" -> {
                         handleTextSpan(child, bodyText, spans, strikethrough = true)
+                    }
+
+                    "u" -> {
+                        handleTextSpan(child, bodyText, spans, underline = true)
                     }
 
                     "span" -> {
@@ -144,9 +149,10 @@ private fun handleTextSpan(
     linkData: String? = null,
     strikethrough: Boolean = false,
     monospace: Boolean = false,
+    underline: Boolean = false,
 ) {
     val text = element.ownText()
-    if (bold || italic || link || strikethrough || monospace) {
+    if (bold || italic || link || strikethrough || monospace || underline) {
         val spanStart = bodyText.length
         spans.add(
             SpanRepresentation(
@@ -158,6 +164,7 @@ private fun handleTextSpan(
                 italic = italic,
                 monospace = monospace,
                 strikethrough = strikethrough,
+                underline = underline,
             )
         )
     }

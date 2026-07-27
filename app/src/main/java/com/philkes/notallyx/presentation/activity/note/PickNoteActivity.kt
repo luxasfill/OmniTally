@@ -21,8 +21,9 @@ import com.philkes.notallyx.presentation.view.main.BaseNoteVHPreferences
 import com.philkes.notallyx.presentation.view.main.createCallback
 import com.philkes.notallyx.presentation.view.misc.ItemListener
 import com.philkes.notallyx.presentation.viewmodel.BaseNoteModel
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.NotesView
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
+import com.philkes.notallyx.utils.getCurrentDrawingsDirectory
 import com.philkes.notallyx.utils.getCurrentImagesDirectory
 import java.util.Collections
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +45,7 @@ open class PickNoteActivity : LockedActivity<ActivityPickNoteBinding>(), ItemLis
         val result = Intent()
         setResult(RESULT_CANCELED, result)
 
-        val preferences = NotallyXPreferences.getInstance(application)
+        val preferences = OmniTallyPreferences.getInstance(application)
 
         adapter =
             with(preferences) {
@@ -63,6 +64,7 @@ open class PickNoteActivity : LockedActivity<ActivityPickNoteBinding>(), ItemLis
                         notesSorting.value.sortedBy,
                     ),
                     application.getCurrentImagesDirectory(),
+                    application.getCurrentDrawingsDirectory(),
                     this@PickNoteActivity,
                 )
             }

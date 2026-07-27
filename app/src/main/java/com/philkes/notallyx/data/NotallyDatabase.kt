@@ -12,7 +12,7 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.philkes.notallyx.NotallyXApplication.Companion.isTestRunner
+import com.philkes.notallyx.OmniTallyApplication.Companion.isTestRunner
 import com.philkes.notallyx.data.dao.BaseNoteDao
 import com.philkes.notallyx.data.dao.CommonDao
 import com.philkes.notallyx.data.dao.LabelDao
@@ -24,7 +24,7 @@ import com.philkes.notallyx.data.model.NoteViewMode
 import com.philkes.notallyx.data.model.toColorString
 import com.philkes.notallyx.presentation.view.misc.NotNullLiveData
 import com.philkes.notallyx.presentation.viewmodel.preference.BiometricLock
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.observeForeverSkipFirst
 import com.philkes.notallyx.utils.getExternalMediaDirectory
 import com.philkes.notallyx.utils.security.SQLCipherUtils
@@ -33,7 +33,7 @@ import java.io.File
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @TypeConverters(Converters::class)
-@Database(entities = [BaseNote::class, Label::class], version = 11)
+@Database(entities = [BaseNote::class, Label::class], version = 12)
 abstract class NotallyDatabase : RoomDatabase() {
 
     abstract fun getLabelDao(): LabelDao
@@ -58,7 +58,7 @@ abstract class NotallyDatabase : RoomDatabase() {
         @Volatile private var instance: NotNullLiveData<NotallyDatabase>? = null
 
         fun getCurrentDatabaseFile(context: ContextWrapper): File {
-            return if (NotallyXPreferences.getInstance(context).dataInPublicFolder.value) {
+            return if (OmniTallyPreferences.getInstance(context).dataInPublicFolder.value) {
                 getExternalDatabaseFile(context)
             } else {
                 getInternalDatabaseFile(context)
@@ -107,7 +107,7 @@ abstract class NotallyDatabase : RoomDatabase() {
         ): NotNullLiveData<NotallyDatabase> {
             return instance
                 ?: synchronized(this) {
-                    val preferences = NotallyXPreferences.getInstance(context)
+                    val preferences = OmniTallyPreferences.getInstance(context)
                     this.instance =
                         NotNullLiveData(createInstance(context, preferences, observePreferences))
                     return this.instance!!
@@ -115,7 +115,7 @@ abstract class NotallyDatabase : RoomDatabase() {
         }
 
         fun clearInstance(context: Context) {
-            val preferences = NotallyXPreferences.getInstance(context)
+            val preferences = OmniTallyPreferences.getInstance(context)
             instance?.value?.biometricLockObserver?.let {
                 preferences.biometricLock.removeObserver(it)
             }
@@ -145,7 +145,7 @@ abstract class NotallyDatabase : RoomDatabase() {
             } else {
                 createInstance(
                     context,
-                    NotallyXPreferences.getInstance(context),
+                    OmniTallyPreferences.getInstance(context),
                     false,
                     dataInPublic = dataInPublic,
                 )
@@ -154,7 +154,7 @@ abstract class NotallyDatabase : RoomDatabase() {
 
         private fun createInstance(
             context: ContextWrapper,
-            preferences: NotallyXPreferences,
+            preferences: OmniTallyPreferences,
             observePreferences: Boolean,
             dataInPublic: Boolean = preferences.dataInPublicFolder.value,
         ): NotallyDatabase {
@@ -175,6 +175,7 @@ abstract class NotallyDatabase : RoomDatabase() {
                         Migration9,
                         Migration10,
                         Migration11,
+                        Migration12,
                     )
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 System.loadLibrary("sqlcipher")
@@ -233,7 +234,7 @@ abstract class NotallyDatabase : RoomDatabase() {
 
         @RequiresApi(Build.VERSION_CODES.M)
         private fun initializeDecryption(
-            preferences: NotallyXPreferences,
+            preferences: OmniTallyPreferences,
             instanceBuilder: Builder<NotallyDatabase>,
         ) {
             val initializationVector = preferences.iv.value!!
@@ -339,6 +340,15 @@ abstract class NotallyDatabase : RoomDatabase() {
                     order++
                 }
                 cursor.close()
+            }
+        }
+
+        object Migration12 : Migration(11, 12) {
+
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `BaseNote` ADD COLUMN `drawings` TEXT NOT NULL DEFAULT '[]'"
+                )
             }
         }
     }

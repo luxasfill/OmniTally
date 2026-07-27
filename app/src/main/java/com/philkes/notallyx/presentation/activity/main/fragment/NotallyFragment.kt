@@ -275,6 +275,7 @@ abstract class NotallyFragment : Fragment(), ItemListener {
                         notesSorting.value.sortedBy,
                     ),
                     model.imageRoot,
+                    model.drawingsRoot,
                     this@NotallyFragment,
                 )
             }

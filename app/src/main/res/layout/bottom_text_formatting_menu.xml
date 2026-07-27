@@ -1,6 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.recyclerview.widget.RecyclerView
-  xmlns:android="http://schemas.android.com/apk/res/android"
-  android:id="@+id/MainListView"
-  android:layout_width="wrap_content"
-  android:layout_height="match_parent"/>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/MainListView"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"/>
+
+    <ImageView
+        android:id="@+id/ScrollIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:src="@drawable/ic_chevron_right"
+        android:paddingStart="2dp"
+        android:paddingEnd="6dp"
+        android:scaleType="fitCenter"
+        android:alpha="0.5"/>
+
+</LinearLayout>

@@ -13,6 +13,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.philkes.notallyx.R
 import com.philkes.notallyx.data.model.NoteViewMode
@@ -220,6 +221,16 @@ class EditNoteActivity : EditActivity(Type.NOTE) {
                     TextFormattingAdapter(this@EditNoteActivity, binding.EnterBody, colorInt)
                 adapter = textFormattingAdapter
                 layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+                addOnScrollListener(
+                    object : RecyclerView.OnScrollListener() {
+                        override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
+                            super.onScrolled(rv, dx, dy)
+                            val canScrollRight = rv.canScrollHorizontally(1)
+                            layout.ScrollIndicator.visibility =
+                                if (canScrollRight) VISIBLE else GONE
+                        }
+                    }
+                )
             }
             addView(layout.root)
         }

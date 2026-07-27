@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/Toolbar"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="28dp"
+        android:layout_marginHorizontal="16dp"
+        android:paddingHorizontal="4dp"
+        android:background="@drawable/pill_bar_background"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:navigationIcon="?attr/homeAsUpIndicator">
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/drawing"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:layout_gravity="center" />
+
+        <ImageButton
+            android:id="@+id/save"
+            android:layout_width="36dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:layout_marginEnd="4dp"
+            android:padding="6dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/save"
+            android:contentDescription="@string/save" />
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <com.philkes.notallyx.presentation.view.note.drawing.DrawingView
+        android:id="@+id/drawingView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/drawing_border"
+        app:layout_constraintTop_toBottomOf="@id/Toolbar"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/strokeWidthBar"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:visibility="gone"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="24dp"
+        android:background="@drawable/pill_bar_background"
+        android:elevation="8dp"
+        android:layout_marginBottom="8dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <SeekBar
+            android:id="@+id/strokeWidth"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="50"
+            android:progress="12" />
+
+        <TextView
+            android:id="@+id/strokeWidthLabel"
+            android:layout_width="48dp"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="12"
+            android:textColor="@android:color/white" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="wrap_content"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingHorizontal="12dp"
+        android:background="@drawable/pill_bar_background"
+        android:elevation="8dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageButton
+            android:id="@+id/undo"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@drawable/undo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/undo" />
+
+        <ImageButton
+            android:id="@+id/redo"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@drawable/redo"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/redo" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="28dp"
+            android:background="#33FFFFFF"
+            android:layout_marginHorizontal="6dp" />
+
+        <ImageButton
+            android:id="@+id/pen"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@drawable/edit"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/pen" />
+
+        <ImageButton
+            android:id="@+id/eraser"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@drawable/eraser"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/eraser" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="28dp"
+            android:background="#33FFFFFF"
+            android:layout_marginHorizontal="6dp" />
+
+        <ImageButton
+            android:id="@+id/colorPicker"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@drawable/palette"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/color" />
+
+        <ImageButton
+            android:id="@+id/move"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@drawable/search"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/zoom" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

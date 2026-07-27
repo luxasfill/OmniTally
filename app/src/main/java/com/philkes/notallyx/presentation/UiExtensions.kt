@@ -22,12 +22,14 @@ import android.text.InputType
 import android.text.Spannable
 import android.text.Spanned
 import android.text.TextWatcher
+import android.text.style.BulletSpan
 import android.text.style.CharacterStyle
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.SuggestionSpan
 import android.text.style.TypefaceSpan
 import android.text.style.URLSpan
+import android.text.style.UnderlineSpan
 import android.util.TypedValue
 import android.view.ContextThemeWrapper
 import android.view.KeyEvent
@@ -129,24 +131,38 @@ import me.zhanghai.android.fastscroll.PopupStyles
  */
 fun String.applySpans(representations: List<SpanRepresentation>): Editable {
     val editable = Editable.Factory.getInstance().newEditable(this)
-    representations.forEach { (start, end, bold, link, linkData, italic, monospace, strikethrough)
-        ->
+    representations.forEach { representation ->
         try {
-            if (bold) {
-                editable.setSpan(createBoldSpan(), start, end)
+            if (representation.bold) {
+                editable.setSpan(createBoldSpan(), representation.start, representation.end)
             }
-            if (italic) {
-                editable.setSpan(StyleSpan(Typeface.ITALIC), start, end)
+            if (representation.italic) {
+                editable.setSpan(
+                    StyleSpan(Typeface.ITALIC),
+                    representation.start,
+                    representation.end,
+                )
             }
-            if (link) {
-                val url = linkData ?: getUrl(start, end)
-                editable.setSpan(URLSpan(url), start, end)
+            if (representation.link) {
+                val url =
+                    representation.linkData ?: getUrl(representation.start, representation.end)
+                editable.setSpan(URLSpan(url), representation.start, representation.end)
             }
-            if (monospace) {
-                editable.setSpan(TypefaceSpan("monospace"), start, end)
+            if (representation.monospace) {
+                editable.setSpan(
+                    TypefaceSpan("monospace"),
+                    representation.start,
+                    representation.end,
+                )
             }
-            if (strikethrough) {
-                editable.setSpan(StrikethroughSpan(), start, end)
+            if (representation.strikethrough) {
+                editable.setSpan(StrikethroughSpan(), representation.start, representation.end)
+            }
+            if (representation.underline) {
+                editable.setSpan(UnderlineSpan(), representation.start, representation.end)
+            }
+            if (representation.bullet) {
+                editable.setSpan(BulletSpan(8), representation.start, representation.end)
             }
         } catch (exception: Exception) {
             exception.printStackTrace()
@@ -813,7 +829,9 @@ fun TextView.setSelectionHandleColor(@ColorInt color: Int) {
         } else {
             setSelectHandleColor(color)
         }
-    } catch (_: Exception) {}
+    } catch (e: Exception) {
+        android.util.Log.w("UiExtensions", "Failed to set text selection handle color", e)
+    }
 }
 
 /**

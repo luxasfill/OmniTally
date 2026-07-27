@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="@string/edit_reminders" />
+        app:title="@string/play_audio" />
     <TextView
         android:id="@+id/Error"
         android:layout_width="match_parent"

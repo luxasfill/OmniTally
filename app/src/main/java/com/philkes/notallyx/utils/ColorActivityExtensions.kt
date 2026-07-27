@@ -26,7 +26,7 @@ import com.philkes.notallyx.presentation.showAndFocus
 import com.philkes.notallyx.presentation.showToast
 import com.philkes.notallyx.presentation.view.main.ColorAdapter
 import com.philkes.notallyx.presentation.view.misc.ItemListener
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.skydoves.colorpickerview.ColorEnvelope
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
 
@@ -37,7 +37,7 @@ fun AppCompatActivity.showColorSelectDialog(
     callback: (selectedColor: ColorString, oldColor: ColorString?) -> Unit,
     deleteCallback: (colorToDelete: ColorString, newColor: ColorString) -> Unit,
 ) {
-    val preferences = NotallyXPreferences.getInstance(this)
+    val preferences = OmniTallyPreferences.getInstance(this)
     val actualColors =
         (colors + preferences.defaultNoteColor.value).toMutableList().apply {
             remove(BaseNote.COLOR_DEFAULT)
@@ -141,7 +141,13 @@ private fun AppCompatActivity.showEditColorDialog(
                             val color = this@showEditColorDialog.extractColor("#$hexCode")
                             editTextChangedByUser = true
                             ColorPicker.selectByHsvColor(color)
-                        } catch (e: Exception) {}
+                        } catch (e: Exception) {
+                            android.util.Log.w(
+                                "ColorActivityExtensions",
+                                "Failed to parse color: #$hexCode",
+                                e,
+                            )
+                        }
                     }
                 }
                 CopyCode.setOnClickListener { _ ->
@@ -185,7 +191,7 @@ private fun AppCompatActivity.showEditColorDialog(
                 adapter = colorAdapter
             }
         }
-    val preferences = NotallyXPreferences.getInstance(this@showEditColorDialog)
+    val preferences = OmniTallyPreferences.getInstance(this@showEditColorDialog)
     dialog =
         MaterialAlertDialogBuilder(this).run {
             setTitle(if (oldColor != null) R.string.edit_color else R.string.new_color)

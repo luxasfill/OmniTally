@@ -7,11 +7,13 @@ import android.net.Uri
 import android.text.Editable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.style.BulletSpan
 import android.text.style.CharacterStyle
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.TypefaceSpan
 import android.text.style.URLSpan
+import android.text.style.UnderlineSpan
 import androidx.core.text.getSpans
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
@@ -39,7 +41,7 @@ import com.philkes.notallyx.presentation.applySpans
 import com.philkes.notallyx.presentation.showToast
 import com.philkes.notallyx.presentation.view.misc.NotNullLiveData
 import com.philkes.notallyx.presentation.view.misc.Progress
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.TextSizeSp
 import com.philkes.notallyx.presentation.viewmodel.progress.AddFilesProgress
 import com.philkes.notallyx.presentation.widget.WidgetProvider
@@ -53,6 +55,7 @@ import com.philkes.notallyx.utils.cancelPinAndReminders
 import com.philkes.notallyx.utils.cancelReminder
 import com.philkes.notallyx.utils.deleteAttachments
 import com.philkes.notallyx.utils.getCurrentAudioDirectory
+import com.philkes.notallyx.utils.getCurrentDrawingsDirectory
 import com.philkes.notallyx.utils.getCurrentFilesDirectory
 import com.philkes.notallyx.utils.getCurrentImagesDirectory
 import com.philkes.notallyx.utils.getTempAudioFile
@@ -69,7 +72,7 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
     private val database = NotallyDatabase.getDatabase(app)
     private lateinit var baseNoteDao: BaseNoteDao
 
-    val preferences = NotallyXPreferences.getInstance(app)
+    val preferences = OmniTallyPreferences.getInstance(app)
     val textSize: TextSizeSp = preferences.textSizeNoteEditor.value
 
     var isNewNote = true
@@ -95,6 +98,7 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
     val images = NotNullLiveData<List<FileAttachment>>(emptyList())
     val files = NotNullLiveData<List<FileAttachment>>(emptyList())
     val audios = NotNullLiveData<List<Audio>>(emptyList())
+    val drawings = NotNullLiveData<List<FileAttachment>>(emptyList())
 
     val reminders = NotNullLiveData<List<Reminder>>(emptyList())
     val viewMode = NotNullLiveData(NoteViewMode.EDIT)
@@ -105,6 +109,7 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
     var imageRoot = app.getCurrentImagesDirectory()
     var audioRoot = app.getCurrentAudioDirectory()
     var filesRoot = app.getCurrentFilesDirectory()
+    var drawingsRoot = app.getCurrentDrawingsDirectory()
 
     var originalNote: BaseNote? = null
 
@@ -221,6 +226,31 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun addDrawing(drawing: FileAttachment) {
+        val copy = ArrayList(drawings.value)
+        copy.add(drawing)
+        drawings.value = copy
+        viewModelScope.launch { updateDrawings() }
+    }
+
+    fun deleteDrawing(drawing: FileAttachment) {
+        val copy = ArrayList(drawings.value)
+        copy.remove(drawing)
+        drawings.value = copy
+        viewModelScope.launch {
+            updateDrawings()
+            withContext(Dispatchers.IO) { app.deleteAttachments(arrayListOf(drawing)) }
+        }
+    }
+
+    fun refreshDrawing() {
+        drawings.value = ArrayList(drawings.value)
+        modifiedTimestamp = System.currentTimeMillis()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { baseNoteDao.updateTimestamp(id, modifiedTimestamp) }
+        }
+    }
+
     fun setLabels(list: List<String>) {
         labels.clear()
         labels.addAll(list)
@@ -258,6 +288,7 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
                 reminders.value = baseNote.reminders
                 viewMode.value = baseNote.viewMode
                 isPinnedToStatus = baseNote.isPinnedToStatus
+                drawings.value = baseNote.drawings
             } else {
                 originalNote = createBaseNote(createInDb)
                 app.showToast(R.string.cant_find_note)
@@ -277,7 +308,7 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
         app.cancelPinAndReminders(id, reminders.value)
         withContext(Dispatchers.IO) { baseNoteDao.delete(id) }
         WidgetProvider.sendBroadcast(app, longArrayOf(id))
-        val attachments = ArrayList(images.value + files.value + audios.value)
+        val attachments = ArrayList(images.value + files.value + audios.value + drawings.value)
         if (attachments.isNotEmpty()) {
             withContext(Dispatchers.IO) { app.deleteAttachments(attachments) }
         }
@@ -325,7 +356,8 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
             items.none { item -> item.body.isNotEmpty() } &&
             files.value.isEmpty() &&
             images.value.isEmpty() &&
-            audios.value.isEmpty()
+            audios.value.isEmpty() &&
+            drawings.value.isEmpty()
     }
 
     fun isModified(): Boolean {
@@ -342,6 +374,10 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
 
     private suspend fun updateAudios() {
         withContext(Dispatchers.IO) { baseNoteDao.updateAudios(id, audios.value) }
+    }
+
+    private suspend fun updateDrawings() {
+        withContext(Dispatchers.IO) { baseNoteDao.updateDrawings(id, drawings.value) }
     }
 
     fun getBaseNote(): BaseNote {
@@ -367,6 +403,7 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
             reminders.value,
             viewMode.value,
             isPinnedToStatus,
+            drawings.value,
         )
     }
 
@@ -390,11 +427,19 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
                 }
                 is TypefaceSpan -> representation.monospace = span.family == "monospace"
                 is StrikethroughSpan -> representation.strikethrough = true
+                is UnderlineSpan -> representation.underline = true
             }
 
             if (representation.isNotUseless()) {
                 representations.add(representation)
             }
+        }
+        spanned.getSpans<BulletSpan>().forEach { span ->
+            val end = spanned.getSpanEnd(span)
+            val start = spanned.getSpanStart(span)
+            val representation =
+                SpanRepresentation(start, end, false, false, null, false, false, false, false, true)
+            representations.add(representation)
         }
         return getFilteredRepresentations(ArrayList(representations))
     }
@@ -423,6 +468,12 @@ class NotallyModel(private val app: Application) : AndroidViewModel(app) {
                 }
                 if (match.strikethrough) {
                     representation.strikethrough = true
+                }
+                if (match.underline) {
+                    representation.underline = true
+                }
+                if (match.bullet) {
+                    representation.bullet = true
                 }
                 val copy = ArrayList(representations)
                 copy[index] = representation

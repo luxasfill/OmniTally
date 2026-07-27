@@ -10,6 +10,7 @@ import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
+import com.bumptech.glide.signature.ObjectKey
 import com.philkes.notallyx.databinding.RecyclerPreviewImageBinding
 import java.io.File
 
@@ -31,9 +32,10 @@ class PreviewImageVH(
 
         Glide.with(binding.ImageView)
             .load(file)
+            .signature(ObjectKey(file?.lastModified() ?: System.currentTimeMillis()))
             .centerCrop()
             .transition(DrawableTransitionOptions.withCrossFade())
-            .diskCacheStrategy(DiskCacheStrategy.NONE)
+            .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
             .listener(
                 object : RequestListener<Drawable> {
 

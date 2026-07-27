@@ -11,7 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.widget.RemoteViews
 import androidx.core.content.ContextCompat
-import com.philkes.notallyx.NotallyXApplication
+import com.philkes.notallyx.OmniTallyApplication
 import com.philkes.notallyx.R
 import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.dao.BaseNoteDao
@@ -25,14 +25,13 @@ import com.philkes.notallyx.presentation.extractColor
 import com.philkes.notallyx.presentation.getContrastFontColor
 import com.philkes.notallyx.presentation.view.note.listitem.findChildrenPositions
 import com.philkes.notallyx.presentation.view.note.listitem.findParentPosition
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.Theme
 import com.philkes.notallyx.utils.embedIntentExtras
 import com.philkes.notallyx.utils.getOpenNotePendingIntent
 import com.philkes.notallyx.utils.isSystemInDarkMode
-import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -44,8 +43,8 @@ class WidgetProvider : AppWidgetProvider() {
         when (intent.action) {
             ACTION_NOTES_MODIFIED,
             Intent.ACTION_LOCALE_CHANGED -> {
-                val app = context.applicationContext as NotallyXApplication
-                val preferences = NotallyXPreferences.getInstance(context)
+                val app = context.applicationContext as OmniTallyApplication
+                val preferences = OmniTallyPreferences.getInstance(context)
                 val noteIds = intent.getLongArrayExtra(EXTRA_MODIFIED_NOTES)
                 if (noteIds != null) {
                     updateWidgets(
@@ -62,7 +61,6 @@ class WidgetProvider : AppWidgetProvider() {
         }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
     private fun checkChanged(intent: Intent, context: Context) {
         val noteId = intent.getLongExtra(EXTRA_SELECTED_BASE_NOTE, 0)
         val position = intent.getIntExtra(EXTRA_POSITION, 0)
@@ -77,31 +75,44 @@ class WidgetProvider : AppWidgetProvider() {
                 )
                 .value
         val pendingResult = goAsync()
-        GlobalScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val baseNoteDao = database.getBaseNoteDao()
-                    val note = baseNoteDao.get(noteId)!!
-                    val item = note.items[position]
-                    if (checked == null) {
-                        checked = !item.checked
-                    }
-                    if (item.isChild) {
-                        changeChildChecked(note, position, checked!!, baseNoteDao, noteId)
-                    } else {
-                        val childrenPositions = note.items.findChildrenPositions(position)
-                        baseNoteDao.updateChecked(noteId, childrenPositions + position, checked!!)
-                    }
-                } finally {
-                    val app = context.applicationContext as NotallyXApplication
-                    val preferences = NotallyXPreferences.getInstance(context)
-                    updateWidgets(
-                        context,
-                        longArrayOf(noteId),
-                        locked = preferences.isLockEnabled && app.locked.value,
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val baseNoteDao = database.getBaseNoteDao()
+                val note =
+                    baseNoteDao.get(noteId)
+                        ?: run {
+                            android.util.Log.e("WidgetProvider", "Note with id '$noteId' not found")
+                            return@launch
+                        }
+                if (position < 0 || position >= note.items.size) {
+                    android.util.Log.e(
+                        "WidgetProvider",
+                        "Invalid position $position for note '$noteId'",
                     )
-                    pendingResult.finish()
+                    return@launch
                 }
+                val item = note.items[position]
+                if (checked == null) {
+                    checked = !item.checked
+                }
+                val checkedValue = checked ?: return@launch
+                if (item.isChild) {
+                    changeChildChecked(note, position, checkedValue, baseNoteDao, noteId)
+                } else {
+                    val childrenPositions = note.items.findChildrenPositions(position)
+                    baseNoteDao.updateChecked(noteId, childrenPositions + position, checkedValue)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("WidgetProvider", "Error handling checked change", e)
+            } finally {
+                val app = context.applicationContext as OmniTallyApplication
+                val preferences = OmniTallyPreferences.getInstance(context)
+                updateWidgets(
+                    context,
+                    longArrayOf(noteId),
+                    locked = preferences.isLockEnabled && app.locked.value,
+                )
+                pendingResult.finish()
             }
         }
     }
@@ -113,7 +124,15 @@ class WidgetProvider : AppWidgetProvider() {
         baseNoteDao: BaseNoteDao,
         noteId: Long,
     ) {
-        val parentPosition = note.items.findParentPosition(childPosition)!!
+        val parentPosition =
+            note.items.findParentPosition(childPosition)
+                ?: run {
+                    android.util.Log.e(
+                        "WidgetProvider",
+                        "No parent found for child position $childPosition",
+                    )
+                    return
+                }
         val parent = note.items[parentPosition]
         val childrenPositions = note.items.findChildrenPositions(parentPosition)
         if (parent.checked != checked) {
@@ -139,7 +158,7 @@ class WidgetProvider : AppWidgetProvider() {
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         val app = context.applicationContext as Application
-        val preferences = NotallyXPreferences.getInstance(app)
+        val preferences = OmniTallyPreferences.getInstance(app)
 
         appWidgetIds.forEach { id -> preferences.deleteWidget(id) }
     }
@@ -149,8 +168,8 @@ class WidgetProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
     ) {
-        val app = context.applicationContext as NotallyXApplication
-        val preferences = NotallyXPreferences.getInstance(app)
+        val app = context.applicationContext as OmniTallyApplication
+        val preferences = OmniTallyPreferences.getInstance(app)
 
         appWidgetIds.forEach { id ->
             val noteId = preferences.getWidgetData(id)
@@ -170,7 +189,7 @@ class WidgetProvider : AppWidgetProvider() {
 
         fun updateWidgets(context: Context, noteIds: LongArray? = null, locked: Boolean) {
             val app = context.applicationContext as Application
-            val preferences = NotallyXPreferences.getInstance(app)
+            val preferences = OmniTallyPreferences.getInstance(app)
 
             val manager = AppWidgetManager.getInstance(context)
             val updatableWidgets = preferences.getUpdatableWidgets(noteIds)
@@ -208,7 +227,7 @@ class WidgetProvider : AppWidgetProvider() {
                     withContext(Dispatchers.IO) { database.getBaseNoteDao().getColorOfNote(noteId) }
                 if (color == null) {
                     val app = context.applicationContext as Application
-                    val preferences = NotallyXPreferences.getInstance(app)
+                    val preferences = OmniTallyPreferences.getInstance(app)
                     preferences.deleteWidget(id)
                     val view =
                         RemoteViews(context.packageName, R.layout.widget).apply {
@@ -259,7 +278,7 @@ class WidgetProvider : AppWidgetProvider() {
                                         .asPendingIntent(context),
                                 )
                             }
-                            val preferences = NotallyXPreferences.getInstance(context)
+                            val preferences = OmniTallyPreferences.getInstance(context)
                             val (backgroundColor, _) =
                                 context.extractWidgetColors(color, preferences)
                             setInt(R.id.Layout, "setBackgroundColor", backgroundColor)
@@ -321,7 +340,7 @@ class WidgetProvider : AppWidgetProvider() {
 
         fun Context.extractWidgetColors(
             color: String,
-            preferences: NotallyXPreferences,
+            preferences: OmniTallyPreferences,
         ): Pair<Int, Int> {
             val backgroundColor =
                 if (color == BaseNote.COLOR_DEFAULT) {

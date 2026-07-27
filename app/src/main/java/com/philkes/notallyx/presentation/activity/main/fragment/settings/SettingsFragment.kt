@@ -29,7 +29,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.work.WorkManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputLayout.END_ICON_PASSWORD_TOGGLE
-import com.philkes.notallyx.NotallyXApplication
+import com.philkes.notallyx.OmniTallyApplication
 import com.philkes.notallyx.R
 import com.philkes.notallyx.cancelAutoRemoveOldDeletedNotes
 import com.philkes.notallyx.data.imports.Display
@@ -52,8 +52,8 @@ import com.philkes.notallyx.presentation.view.misc.TextWithIconAdapter
 import com.philkes.notallyx.presentation.viewmodel.BaseNoteModel
 import com.philkes.notallyx.presentation.viewmodel.preference.Constants.PASSWORD_EMPTY
 import com.philkes.notallyx.presentation.viewmodel.preference.LongPreference
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.EMPTY_PATH
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.EMPTY_PATH
 import com.philkes.notallyx.presentation.viewmodel.preference.PeriodicBackup
 import com.philkes.notallyx.presentation.viewmodel.preference.PeriodicBackup.Companion.BACKUP_MAX_MIN
 import com.philkes.notallyx.presentation.viewmodel.preference.PeriodicBackup.Companion.BACKUP_PERIOD_DAYS_MIN
@@ -88,6 +88,7 @@ class SettingsFragment : Fragment() {
     private lateinit var importRawDatabaseActivityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var importOtherActivityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var exportBackupActivityResultLauncher: ActivityResultLauncher<Intent>
+    private lateinit var migrateBackupActivityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var chooseBackupFolderActivityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var setupLockActivityResultLauncher: ActivityResultLauncher<Intent>
     private lateinit var disableLockActivityResultLauncher: ActivityResultLauncher<Intent>
@@ -174,6 +175,12 @@ class SettingsFragment : Fragment() {
                 } else {
                     // User canceled export picker; do not keep a stale continuation around
                     pendingBiometricContinuation = null
+                }
+            }
+        migrateBackupActivityResultLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                if (result.resultCode == RESULT_OK) {
+                    result.data?.data?.let { uri -> model.migrateBackup(uri) }
                 }
             }
         chooseBackupFolderActivityResultLauncher =
@@ -275,7 +282,7 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private fun NotallyXPreferences.setupAppearance(binding: FragmentSettingsBinding) {
+    private fun OmniTallyPreferences.setupAppearance(binding: FragmentSettingsBinding) {
         notesView.observe(viewLifecycleOwner) { value ->
             binding.View.setup(notesView, value, requireContext()) { newValue ->
                 model.savePreference(notesView, newValue)
@@ -427,7 +434,7 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private fun NotallyXPreferences.setupContentDensity(binding: FragmentSettingsBinding) {
+    private fun OmniTallyPreferences.setupContentDensity(binding: FragmentSettingsBinding) {
         binding.apply {
             MaxTitle.setup(maxTitle, requireContext()) { newValue ->
                 model.savePreference(maxTitle, newValue)
@@ -467,7 +474,7 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private fun NotallyXPreferences.setupBackup(binding: FragmentSettingsBinding) {
+    private fun OmniTallyPreferences.setupBackup(binding: FragmentSettingsBinding) {
         binding.apply {
             ImportBackup.setOnClickListener {
                 val intent =
@@ -492,13 +499,24 @@ class SettingsFragment : Fragment() {
                         .wrapWithChooser(requireContext())
                 exportBackupActivityResultLauncher.launch(intent)
             }
+            MigrateBackup.setOnClickListener {
+                val intent =
+                    Intent(Intent.ACTION_CREATE_DOCUMENT)
+                        .apply {
+                            type = MIME_TYPE_ZIP
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            putExtra(Intent.EXTRA_TITLE, buildMigrateTitle())
+                        }
+                        .wrapWithChooser(requireContext())
+                migrateBackupActivityResultLauncher.launch(intent)
+            }
         }
         (model.importProgress as? MutableLiveData<ImportProgress>)?.setupImportProgressDialog(
             this@SettingsFragment
         )
     }
 
-    private fun NotallyXPreferences.setupAutoBackups(binding: FragmentSettingsBinding) {
+    private fun OmniTallyPreferences.setupAutoBackups(binding: FragmentSettingsBinding) {
         backupsFolder.observe(viewLifecycleOwner) { value ->
             binding.BackupsFolder.setupBackupsFolder(
                 value,
@@ -742,7 +760,7 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private fun NotallyXPreferences.setupSecurity(binding: FragmentSettingsBinding) {
+    private fun OmniTallyPreferences.setupSecurity(binding: FragmentSettingsBinding) {
         biometricLock.observe(viewLifecycleOwner) { value ->
             binding.BiometricLock.setup(
                 biometricLock,
@@ -775,7 +793,7 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    private fun NotallyXPreferences.setupSettings(binding: FragmentSettingsBinding) {
+    private fun OmniTallyPreferences.setupSettings(binding: FragmentSettingsBinding) {
         binding.apply {
             ImportSettings.setOnClickListener {
                 showDialog(
@@ -787,7 +805,7 @@ class SettingsFragment : Fragment() {
                                 .apply {
                                     type = MIME_TYPE_JSON
                                     addCategory(Intent.CATEGORY_OPENABLE)
-                                    putExtra(Intent.EXTRA_TITLE, "NotallyX_Settings.json")
+                                    putExtra(Intent.EXTRA_TITLE, "OmniTally_Settings.json")
                                 }
                                 .wrapWithChooser(requireContext())
                         importSettingsActivityResultLauncher.launch(intent)
@@ -804,7 +822,7 @@ class SettingsFragment : Fragment() {
                                 .apply {
                                     type = MIME_TYPE_JSON
                                     addCategory(Intent.CATEGORY_OPENABLE)
-                                    putExtra(Intent.EXTRA_TITLE, "NotallyX_Settings.json")
+                                    putExtra(Intent.EXTRA_TITLE, "OmniTally_Settings.json")
                                 }
                                 .wrapWithChooser(requireContext())
                         exportSettingsActivityResultLauncher.launch(intent)
@@ -884,7 +902,7 @@ class SettingsFragment : Fragment() {
                                         Intent(
                                                 Intent.ACTION_VIEW,
                                                 Uri.parse(
-                                                    "https://github.com/Crustack/NotallyX/issues/new?labels=enhancement&template=feature_request.md"
+                                                    "https://github.com/Crustack/OmniTally/issues/new?labels=enhancement&template=feature_request.md"
                                                 ),
                                             )
                                             .wrapWithChooser(requireContext())
@@ -900,7 +918,7 @@ class SettingsFragment : Fragment() {
                                                 Intent.EXTRA_EMAIL,
                                                 arrayOf("notallyx@yahoo.com"),
                                             )
-                                            putExtra(Intent.EXTRA_SUBJECT, "NotallyX [Feedback]")
+                                            putExtra(Intent.EXTRA_SUBJECT, "OmniTally [Feedback]")
                                             val app =
                                                 requireContext().applicationContext as Application
                                             val log = app.getLogFile()
@@ -922,10 +940,10 @@ class SettingsFragment : Fragment() {
                     .show()
             }
             Rate.setOnClickListener {
-                openLink("https://play.google.com/store/apps/details?id=com.philkes.notallyx")
+                openLink("https://play.google.com/store/apps/details?id=com.philkes.omnitally")
             }
-            Documentation.setOnClickListener { openLink("https://crustack.github.io/NotallyX") }
-            SourceCode.setOnClickListener { openLink("https://github.com/Crustack/NotallyX") }
+            Documentation.setOnClickListener { openLink("https://crustack.github.io/OmniTally") }
+            SourceCode.setOnClickListener { openLink("https://github.com/Crustack/OmniTally") }
             Libraries.setOnClickListener {
                 val libraries =
                     arrayOf(
@@ -1005,7 +1023,7 @@ class SettingsFragment : Fragment() {
                 R.string.enable_lock_title,
                 R.string.enable_lock_description,
                 onSuccess = { cipher ->
-                    val app = (requireActivity().application as NotallyXApplication)
+                    val app = (requireActivity().application as OmniTallyApplication)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         lifecycleScope.launch {
                             try {
@@ -1043,7 +1061,7 @@ class SettingsFragment : Fragment() {
                 model.preferences.iv.value!!,
                 onSuccess = { cipher ->
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        val app = (requireActivity().application as NotallyXApplication)
+                        val app = (requireActivity().application as OmniTallyApplication)
                         lifecycleScope.launch {
                             try {
                                 model.disableBiometricLock(cipher)
@@ -1091,7 +1109,13 @@ class SettingsFragment : Fragment() {
     private fun buildBackupTitle(): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd HH-mm", Locale.getDefault())
         val ts = sdf.format(Date())
-        return "NotallyX Backup $ts.zip"
+        return "OmniTally Backup $ts.zip"
+    }
+
+    private fun buildMigrateTitle(): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH-mm", Locale.getDefault())
+        val ts = sdf.format(Date())
+        return "OmniTally Migrate $ts.zip"
     }
 
     private fun showBiometricsNotSetupDialog() {
@@ -1119,7 +1143,7 @@ class SettingsFragment : Fragment() {
     }
 
     private fun openDocsLink(docPath: String) {
-        openLink("https://crustack.github.io/NotallyX/docs/$docPath")
+        openLink("https://crustack.github.io/OmniTally/docs/$docPath")
     }
 
     private fun askForUriPermissions(uri: Uri) {

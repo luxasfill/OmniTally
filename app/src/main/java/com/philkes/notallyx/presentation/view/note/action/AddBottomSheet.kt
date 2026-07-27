@@ -22,6 +22,10 @@ class AddBottomSheet(handler: NoteActionHandler, @ColorInt color: Int?) :
                     actionHandler.attachFiles()
                     true
                 },
+                Action(R.string.add_drawing, R.drawable.edit) { _ ->
+                    actionHandler.addDrawing()
+                    true
+                },
             ) +
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
                     listOf(

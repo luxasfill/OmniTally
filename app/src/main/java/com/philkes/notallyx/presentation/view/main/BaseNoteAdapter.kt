@@ -28,6 +28,7 @@ class BaseNoteAdapter(
     private var notesSortCallback: (adapter: BaseNoteAdapter) -> SortedListAdapterCallback<Item>,
     private val preferences: BaseNoteVHPreferences,
     private val imageRoot: File?,
+    private val drawingsRoot: File? = null,
     private val listener: ItemListener,
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
@@ -52,7 +53,13 @@ class BaseNoteAdapter(
             is BaseNote -> {
                 (holder as BaseNoteVH).apply {
                     setSearchKeyword(searchKeyword)
-                    bind(item, imageRoot, selectedIds.contains(item.id), preferences.sortedBy)
+                    bind(
+                        item,
+                        imageRoot,
+                        drawingsRoot,
+                        selectedIds.contains(item.id),
+                        preferences.sortedBy,
+                    )
                 }
             }
         }

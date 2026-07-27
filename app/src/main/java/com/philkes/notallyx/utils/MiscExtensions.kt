@@ -3,6 +3,7 @@ package com.philkes.notallyx.utils
 import android.util.Patterns
 import java.util.Calendar
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 
 fun CharSequence.truncate(limit: Int): CharSequence {
@@ -140,9 +141,19 @@ fun <T : Enum<T>> Class<T>.deserializeEnums(data: String): List<T> {
     }
 }
 
+private val lastTimestamp = AtomicLong(0)
+
 fun uniqueCurrentMillis(): Long {
-    Thread.sleep(1)
-    return System.currentTimeMillis()
+    var current: Long
+    var last: Long
+    do {
+        last = lastTimestamp.get()
+        current = System.currentTimeMillis()
+    } while (current <= last && !lastTimestamp.compareAndSet(last, last + 1))
+    if (current > last) {
+        lastTimestamp.set(current)
+    }
+    return current
 }
 
 typealias Seconds = Long

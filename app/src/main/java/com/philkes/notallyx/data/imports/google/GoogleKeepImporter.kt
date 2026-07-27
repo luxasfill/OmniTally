@@ -185,33 +185,32 @@ class GoogleKeepImporter : ExternalImporter {
 
     private fun unzip(destinationPath: File, inputStream: InputStream): File {
         val buffer = ByteArray(1024)
-        val zis = ZipInputStream(inputStream)
-        var zipEntry = zis.nextEntry
-        while (zipEntry != null) {
-            val newFile: File = newFile(destinationPath, zipEntry)
-            if (zipEntry.isDirectory) {
-                if (!newFile.isDirectory && !newFile.mkdirs()) {
-                    throw IOException("Failed to create directory $newFile")
-                }
-            } else {
-                val parent = newFile.parentFile
-                if (parent != null) {
-                    if (!parent.isDirectory && !parent.mkdirs()) {
-                        throw IOException("Failed to create directory $parent")
+        ZipInputStream(inputStream).use { zis ->
+            var zipEntry = zis.nextEntry
+            while (zipEntry != null) {
+                val newFile: File = newFile(destinationPath, zipEntry)
+                if (zipEntry.isDirectory) {
+                    if (!newFile.isDirectory && !newFile.mkdirs()) {
+                        throw IOException("Failed to create directory $newFile")
+                    }
+                } else {
+                    val parent = newFile.parentFile
+                    if (parent != null) {
+                        if (!parent.isDirectory && !parent.mkdirs()) {
+                            throw IOException("Failed to create directory $parent")
+                        }
+                    }
+                    FileOutputStream(newFile).use {
+                        var len: Int
+                        while ((zis.read(buffer).also { length -> len = length }) > 0) {
+                            it.write(buffer, 0, len)
+                        }
                     }
                 }
-                FileOutputStream(newFile).use {
-                    var len: Int
-                    while ((zis.read(buffer).also { length -> len = length }) > 0) {
-                        it.write(buffer, 0, len)
-                    }
-                }
+                zipEntry = zis.nextEntry
             }
-            zipEntry = zis.nextEntry
+            zis.closeEntry()
         }
-
-        zis.closeEntry()
-        zis.close()
         return destinationPath
     }
 

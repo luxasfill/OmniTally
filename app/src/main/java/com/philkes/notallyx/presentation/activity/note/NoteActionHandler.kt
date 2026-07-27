@@ -32,6 +32,8 @@ import com.philkes.notallyx.presentation.activity.note.PickNoteActivity.Companio
 import com.philkes.notallyx.presentation.activity.note.PickNoteActivity.Companion.EXTRA_PICKED_NOTE_TITLE
 import com.philkes.notallyx.presentation.activity.note.PickNoteActivity.Companion.EXTRA_PICKED_NOTE_TYPE
 import com.philkes.notallyx.presentation.activity.note.SelectLabelsActivity.Companion.EXTRA_SELECTED_LABELS
+import com.philkes.notallyx.presentation.activity.note.drawing.EditDrawingActivity
+import com.philkes.notallyx.presentation.activity.note.drawing.ViewDrawingActivity
 import com.philkes.notallyx.presentation.activity.note.reminders.RemindersActivity
 import com.philkes.notallyx.presentation.bindLabels
 import com.philkes.notallyx.presentation.checkNotificationPermission
@@ -66,6 +68,7 @@ class NoteActionHandler(
     lateinit var exportFileActivityResultLauncher: ActivityResultLauncher<Intent>
     lateinit var pickNoteNewActivityResultLauncher: ActivityResultLauncher<Intent>
     lateinit var pickNoteUpdateActivityResultLauncher: ActivityResultLauncher<Intent>
+    lateinit var addDrawingActivityResultLauncher: ActivityResultLauncher<Intent>
 
     lateinit var selectedSpan: URLSpan
 
@@ -171,6 +174,41 @@ class NoteActionHandler(
                             activity.binding.root,
                         )
                     }
+                }
+            }
+        addDrawingActivityResultLauncher =
+            activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+                result ->
+                if (result.resultCode == AppCompatActivity.RESULT_OK) {
+                    val deletedDrawings =
+                        result.data?.let {
+                            IntentCompat.getParcelableArrayListExtra(
+                                it,
+                                ViewDrawingActivity.EXTRA_DELETED_DRAWINGS,
+                                FileAttachment::class.java,
+                            )
+                        }
+                    if (deletedDrawings != null && deletedDrawings.isNotEmpty()) {
+                        for (drawing in deletedDrawings) {
+                            notallyModel.deleteDrawing(drawing)
+                        }
+                    }
+                    val newDrawing =
+                        result.data?.let {
+                            IntentCompat.getParcelableExtra(
+                                it,
+                                EditDrawingActivity.EXTRA_DRAWING,
+                                FileAttachment::class.java,
+                            )
+                        }
+                    val hasExisting =
+                        result.data?.hasExtra(EditDrawingActivity.EXTRA_EXISTING_DRAWING) == true
+                    if (newDrawing != null && !hasExisting) {
+                        val current = ArrayList(notallyModel.drawings.value)
+                        current.add(newDrawing)
+                        notallyModel.drawings.value = current
+                    }
+                    notallyModel.refreshDrawing()
                 }
             }
         pickNoteNewActivityResultLauncher =
@@ -474,6 +512,13 @@ class NoteActionHandler(
                     .wrapWithChooser(activity)
             attachFilesActivityResultLauncher.launch(intent)
         } else activity.showToast(R.string.insert_an_sd_card_files)
+    }
+
+    fun addDrawing() {
+        if (notallyModel.drawingsRoot != null) {
+            val intent = Intent(activity, EditDrawingActivity::class.java)
+            addDrawingActivityResultLauncher.launch(intent)
+        } else activity.showToast(R.string.insert_an_sd_card_images)
     }
 
     fun addNoteLink() {

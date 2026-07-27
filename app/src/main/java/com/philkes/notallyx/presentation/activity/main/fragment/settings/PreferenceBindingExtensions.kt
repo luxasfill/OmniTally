@@ -47,12 +47,12 @@ import com.philkes.notallyx.presentation.viewmodel.preference.DateFormat
 import com.philkes.notallyx.presentation.viewmodel.preference.EnumPreference
 import com.philkes.notallyx.presentation.viewmodel.preference.FloatPreference
 import com.philkes.notallyx.presentation.viewmodel.preference.IntPreference
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.EMPTY_PATH
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.START_VIEW_DEFAULT
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.START_VIEW_UNLABELED
 import com.philkes.notallyx.presentation.viewmodel.preference.NotesSort
 import com.philkes.notallyx.presentation.viewmodel.preference.NotesSortBy
 import com.philkes.notallyx.presentation.viewmodel.preference.NotesSortPreference
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.EMPTY_PATH
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.START_VIEW_DEFAULT
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.START_VIEW_UNLABELED
 import com.philkes.notallyx.presentation.viewmodel.preference.SortDirection
 import com.philkes.notallyx.presentation.viewmodel.preference.StringPreference
 import com.philkes.notallyx.presentation.viewmodel.preference.TextProvider

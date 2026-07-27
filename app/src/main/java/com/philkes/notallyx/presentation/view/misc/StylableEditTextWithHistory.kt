@@ -5,11 +5,13 @@ import android.content.Context
 import android.graphics.Typeface
 import android.text.Editable
 import android.text.Spanned
+import android.text.style.BulletSpan
 import android.text.style.CharacterStyle
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.TypefaceSpan
 import android.text.style.URLSpan
+import android.text.style.UnderlineSpan
 import android.util.AttributeSet
 import android.view.ActionMode
 import android.view.LayoutInflater
@@ -112,6 +114,8 @@ class StylableEditTextWithHistory(context: Context, attrs: AttributeSet) :
             TextStyleType.MONOSPACE ->
                 spans.filter { it is TypefaceSpan && it.family == "monospace" }
             TextStyleType.STRIKETHROUGH -> spans.filterIsInstance<StrikethroughSpan>()
+            TextStyleType.UNDERLINE -> spans.filterIsInstance<UnderlineSpan>()
+            TextStyleType.BULLET -> emptyList()
         }
     }
 
@@ -136,6 +140,8 @@ class StylableEditTextWithHistory(context: Context, attrs: AttributeSet) :
         ITALIC,
         MONOSPACE,
         STRIKETHROUGH,
+        UNDERLINE,
+        BULLET,
     }
 
     /**
@@ -242,6 +248,30 @@ class StylableEditTextWithHistory(context: Context, attrs: AttributeSet) :
             }
         } else {
             changeText { text -> text.setSpan(span, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+        }
+    }
+
+    fun applyParagraphSpan(span: Any, start: Int = selectionStart, end: Int = selectionEnd) {
+        changeTextWithHistory { text ->
+            text.setSpan(span, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+
+    fun clearParagraphFormatting(
+        start: Int = selectionStart,
+        end: Int = selectionEnd,
+        type: TextStyleType,
+    ) {
+        changeTextWithHistory { text ->
+            when (type) {
+                TextStyleType.BULLET -> {
+                    val spans = text.getSpans(start, end, BulletSpan::class.java)
+                    for (span in spans) {
+                        text.removeSpan(span)
+                    }
+                }
+                else -> {}
+            }
         }
     }
 

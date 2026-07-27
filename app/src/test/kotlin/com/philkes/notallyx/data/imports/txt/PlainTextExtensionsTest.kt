@@ -8,7 +8,7 @@ import org.junit.Test
 class PlainTextExtensionsTest {
 
     @Test
-    fun `extractListItems NotallyX syntax`() {
+    fun `extractListItems OmniTally syntax`() {
         val text =
             """
         [ ] 🧪 10:00 AM - Chemistry Lab

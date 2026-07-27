@@ -15,7 +15,7 @@
             android:id="@+id/Toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:contentDescription="Toolbar"
+            android:contentDescription="@string/toolbar"
             app:collapseContentDescription="ToolbarCollapse"
             app:navigationContentDescription="ToolbarNavigation"
             app:contentInsetEnd="16dp">
@@ -30,12 +30,22 @@
             android:background="?attr/colorSurface"
             app:navigationIcon="@drawable/close" />
 
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/TabLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/ActionMode"
+            android:visibility="gone"
+            app:tabGravity="fill"
+            app:tabMode="fixed"
+            style="@style/Widget.Material3.TabLayout" />
+
         <androidx.fragment.app.FragmentContainerView
             android:id="@+id/NavHostFragment"
             android:name="androidx.navigation.fragment.NavHostFragment"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_below="@id/ActionMode"
+            android:layout_below="@id/TabLayout"
             app:defaultNavHost="true"
             app:navGraph="@navigation/navigation" />
 

@@ -20,7 +20,7 @@
           android:id="@+id/CardIcon"
           android:layout_width="match_parent"
           android:layout_height="match_parent"
-          android:contentDescription="CardIcon"
+          android:contentDescription="@string/card_icon"
           android:padding="18dp"
           android:layout_gravity="center"
           android:visibility="gone"

@@ -22,7 +22,7 @@ import com.philkes.notallyx.presentation.view.note.listitem.setItems
 import com.philkes.notallyx.presentation.view.note.listitem.sorting.SortedItemsList
 import com.philkes.notallyx.presentation.view.note.listitem.splitByChecked
 import com.philkes.notallyx.presentation.view.note.listitem.toMutableList
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.autoSortByCheckedEnabled
 import com.philkes.notallyx.presentation.viewmodel.preference.callback
 import com.philkes.notallyx.utils.findAllOccurrences
@@ -91,7 +91,7 @@ class EditListActivity : EditActivity(Type.LIST) {
     }
 
     override fun openMoreOptionsBottomSheet() {
-        val prefs = NotallyXPreferences.getInstance(this@EditListActivity)
+        val prefs = OmniTallyPreferences.getInstance(this@EditListActivity)
         val topActions = prefs.getSafeEditNoteActivityTopActions()
         val bottomAction = prefs.editNoteActivityBottomAction.value
 
@@ -244,7 +244,7 @@ class EditListActivity : EditActivity(Type.LIST) {
                 colorInt,
                 notallyModel.textSize,
                 elevation,
-                NotallyXPreferences.getInstance(application),
+                OmniTallyPreferences.getInstance(application),
                 listManager,
                 false,
                 binding.ScrollView,
@@ -258,7 +258,7 @@ class EditListActivity : EditActivity(Type.LIST) {
                     colorInt,
                     notallyModel.textSize,
                     elevation,
-                    NotallyXPreferences.getInstance(application),
+                    OmniTallyPreferences.getInstance(application),
                     listManager,
                     true,
                     binding.ScrollView,

@@ -46,11 +46,12 @@ import com.philkes.notallyx.presentation.view.misc.Progress
 import com.philkes.notallyx.presentation.viewmodel.BackupFile
 import com.philkes.notallyx.presentation.viewmodel.ExportMimeType
 import com.philkes.notallyx.presentation.viewmodel.preference.Constants.PASSWORD_EMPTY
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.EMPTY_PATH
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.EMPTY_PATH
 import com.philkes.notallyx.presentation.viewmodel.progress.BackupProgress
 import com.philkes.notallyx.utils.MIME_TYPE_ZIP
 import com.philkes.notallyx.utils.SUBFOLDER_AUDIOS
+import com.philkes.notallyx.utils.SUBFOLDER_DRAWINGS
 import com.philkes.notallyx.utils.SUBFOLDER_FILES
 import com.philkes.notallyx.utils.SUBFOLDER_IMAGES
 import com.philkes.notallyx.utils.ZipVerificationException
@@ -59,6 +60,7 @@ import com.philkes.notallyx.utils.createChannelIfNotExists
 import com.philkes.notallyx.utils.createFileSafe
 import com.philkes.notallyx.utils.createReportBugIntent
 import com.philkes.notallyx.utils.getCurrentAudioDirectory
+import com.philkes.notallyx.utils.getCurrentDrawingsDirectory
 import com.philkes.notallyx.utils.getCurrentFilesDirectory
 import com.philkes.notallyx.utils.getCurrentImagesDirectory
 import com.philkes.notallyx.utils.getCurrentMediaRoot
@@ -105,15 +107,15 @@ const val AUTO_BACKUP_WORK_NAME = "com.philkes.notallyx.AutoBackupWork"
 const val OUTPUT_DATA_EXCEPTION = "exception"
 
 val BACKUP_TIMESTAMP_FORMATTER = SimpleDateFormat("yyyyMMdd-HHmmssSSS", Locale.ENGLISH)
-private const val ON_SAVE_BACKUP_FILE = "NotallyX_AutoBackup"
-private const val PERIODIC_BACKUP_FILE_PREFIX = "NotallyX_Backup_"
+private const val ON_SAVE_BACKUP_FILE = "OmniTally_AutoBackup"
+private const val PERIODIC_BACKUP_FILE_PREFIX = "OmniTally_Backup_"
 
 private val periodicBackupMutex = Mutex()
 
 suspend fun ContextWrapper.createBackup(): Result {
     return periodicBackupMutex.withLock {
         val app = applicationContext as Application
-        val preferences = NotallyXPreferences.getInstance(app)
+        val preferences = OmniTallyPreferences.getInstance(app)
         val (_, maxBackups) = preferences.periodicBackups.value
         val path = preferences.backupsFolder.value
 
@@ -232,6 +234,12 @@ suspend fun ContextWrapper.autoBackupOnSave(
                                     File(getCurrentAudioDirectory(), it.name),
                                 )
                             } +
+                            drawings.map {
+                                BackupFile(
+                                    SUBFOLDER_DRAWINGS,
+                                    File(getCurrentDrawingsDirectory(), it.localName),
+                                )
+                            } +
                             BackupFile(null, databaseFile)
                     }
                 suspend fun handleZipException(e: Throwable, backupFile: DocumentFile) {
@@ -285,7 +293,7 @@ private fun ContextWrapper.requireBackupFolder(path: String, msg: String): Docum
 }
 
 suspend fun ContextWrapper.checkBackupOnSave(
-    preferences: NotallyXPreferences,
+    preferences: OmniTallyPreferences,
     note: BaseNote? = null,
     forceFullBackup: Boolean = false,
 ) {
@@ -300,7 +308,6 @@ suspend fun ContextWrapper.checkBackupOnSave(
                     autoBackupOnSave(backupPath, preferences.backupPassword.value, note)
                 }
             }
-            println()
         }
     }
 }
@@ -358,15 +365,24 @@ fun ContextWrapper.exportAsZip(
     password: String = PASSWORD_EMPTY,
     backupProgress: MutableLiveData<Progress>? = null,
     retryOnFail: Boolean = true,
+    skipInternalEncryption: Boolean = false,
 ): NotesAndAttachments {
     backupProgress?.postValue(BackupProgress(indeterminate = true))
     val tempFile = createTempFile("export", "tmp", cacheDir)
     try {
-        val zipFile =
-            ZipFile(tempFile, if (password != PASSWORD_EMPTY) password.toCharArray() else null)
+        val effectivePassword =
+            if (skipInternalEncryption) {
+                if (password != PASSWORD_EMPTY) password else PASSWORD_EMPTY
+            } else {
+                val preferences = OmniTallyPreferences.getInstance(this)
+                val internalKey = preferences.getOrCreateBackupInternalKey()
+                if (password != PASSWORD_EMPTY) "$internalKey:$password" else internalKey
+            }
+        val encrypting = effectivePassword != PASSWORD_EMPTY
+        val zipFile = ZipFile(tempFile, if (encrypting) effectivePassword.toCharArray() else null)
         val zipParameters =
             ZipParameters().apply {
-                isEncryptFiles = password != PASSWORD_EMPTY
+                isEncryptFiles = encrypting
                 if (!compress) {
                     compressionLevel = CompressionLevel.NO_COMPRESSION
                 }
@@ -382,7 +398,8 @@ fun ContextWrapper.exportAsZip(
         val images = databaseOriginal.getBaseNoteDao().getAllImages().toFileAttachments()
         val files = databaseOriginal.getBaseNoteDao().getAllFiles().toFileAttachments()
         val audios = databaseOriginal.getBaseNoteDao().getAllAudios()
-        val totalAttachments = images.count() + files.count() + audios.size
+        val drawings = databaseOriginal.getBaseNoteDao().getAllDrawings().toFileAttachments()
+        val totalAttachments = images.count() + files.count() + audios.size + drawings.count()
         backupProgress?.postValue(
             BackupProgress(
                 0,
@@ -441,6 +458,16 @@ fun ContextWrapper.exportAsZip(
                     )
                 }
             }
+        drawings.export(
+            zipFile,
+            zipParameters,
+            SUBFOLDER_DRAWINGS,
+            this,
+            backupProgress,
+            totalAttachments,
+            counter,
+            missingAttachments,
+        )
         try {
             zipFile.verify(databaseCopy)
         } catch (e: ZipVerificationException) {
@@ -448,7 +475,14 @@ fun ContextWrapper.exportAsZip(
             if (retryOnFail) {
                 zipFile.file.delete()
                 log(TAG, stackTrace = "Retrying to export ZIP to $fileUri...")
-                return exportAsZip(fileUri, compress, password, backupProgress, false)
+                return exportAsZip(
+                    fileUri,
+                    compress,
+                    password,
+                    backupProgress,
+                    false,
+                    skipInternalEncryption,
+                )
             } else {
                 throw IOException(
                     "exportAsZip failed because created '${zipFile.file}' is not a valid ZIP!"
@@ -476,7 +510,14 @@ fun ContextWrapper.exportAsZip(
                 }
                 zipFile.file.delete()
                 log(TAG, stackTrace = "Retrying to export ZIP to $fileUri...")
-                return exportAsZip(fileUri, compress, password, backupProgress, false)
+                return exportAsZip(
+                    fileUri,
+                    compress,
+                    password,
+                    backupProgress,
+                    false,
+                    skipInternalEncryption,
+                )
             } else {
                 throw IOException(
                     "exportAsZip failed because created '$fileUri' has wrong or unverifiable MD5 hash!"
@@ -503,8 +544,9 @@ fun Context.exportToZip(
 ): Boolean {
     val tempDir = File(cacheDir, "export").recreateDir()
     try {
+        val effectivePassword = getEffectiveBackupPassword(password)
         val zipInputStream = contentResolver.openInputStream(zipUri) ?: return false
-        extractZipToDirectory(zipInputStream, tempDir, password)
+        extractZipToDirectory(zipInputStream, tempDir, effectivePassword)
         files
             .filter { it.second.exists() }
             .forEach { file ->
@@ -516,16 +558,14 @@ fun Context.exportToZip(
         val tempZipFile = createTempFile("tempZip", ".zip")
         try {
             tempZipFile.deleteOnExit()
+            val encrypting = effectivePassword != PASSWORD_EMPTY
             val zipFile =
-                ZipFile(
-                    tempZipFile,
-                    if (password != PASSWORD_EMPTY) password.toCharArray() else null,
-                )
+                ZipFile(tempZipFile, if (encrypting) effectivePassword.toCharArray() else null)
             val zipParameters =
                 ZipParameters().apply {
-                    this.isEncryptFiles = password != PASSWORD_EMPTY
+                    this.isEncryptFiles = encrypting
                     this.compressionLevel = CompressionLevel.NO_COMPRESSION
-                    if (isEncryptFiles) {
+                    if (encrypting) {
                         this.encryptionMethod = EncryptionMethod.AES
                     }
                     this.isIncludeRootFolder = false
@@ -548,6 +588,16 @@ fun Context.exportToZip(
     return true
 }
 
+fun Context.getEffectiveBackupPassword(userPassword: String): String {
+    return try {
+        val preferences = OmniTallyPreferences.getInstance(this)
+        val internalKey = preferences.getOrCreateBackupInternalKey()
+        if (userPassword != PASSWORD_EMPTY) "$internalKey:$userPassword" else internalKey
+    } catch (_: Exception) {
+        userPassword
+    }
+}
+
 private fun extractZipToDirectory(zipInputStream: InputStream, outputDir: File, password: String) {
     val tempZipFile = createTempFile("extractedZip", null, outputDir)
     try {
@@ -568,7 +618,7 @@ fun ContextWrapper.copyDatabase(
 ): Pair<NotallyDatabase, File> {
     val database = NotallyDatabase.getDatabase(this, observePreferences = false).value
     database.checkpoint()
-    val preferences = NotallyXPreferences.getInstance(this)
+    val preferences = OmniTallyPreferences.getInstance(this)
     val databaseFile = NotallyDatabase.getCurrentDatabaseFile(this)
     return if (
         decrypt && preferences.isLockEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
@@ -787,7 +837,7 @@ fun exportPdfFile(
     val tempFile = DocumentFile.fromFile(File(app.getExportedPath(), "temp.pdf"))
     val html =
         note.toHtml(
-            NotallyXPreferences.getInstance(app).showDateCreated(),
+            OmniTallyPreferences.getInstance(app).showDateCreated(),
             app.getCurrentImagesDirectory(),
         )
     app.printPdf(
@@ -873,12 +923,18 @@ fun exportPlainTextFile(
                     ExportMimeType.JSON -> note.toJson()
                     ExportMimeType.HTML ->
                         note.toHtml(
-                            NotallyXPreferences.getInstance(app).showDateCreated(),
+                            OmniTallyPreferences.getInstance(app).showDateCreated(),
                             app.getCurrentImagesDirectory(),
                         )
 
                     ExportMimeType.MD -> note.toMarkdown()
-                    else -> TODO("Unsupported MimeType for Export: $exportType")
+                    else -> {
+                        android.util.Log.e(
+                            "ExportExtensions",
+                            "Unsupported MimeType for Export: $exportType",
+                        )
+                        note.toTxt(includeTitle = false, includeCreationDate = false)
+                    }
                 }
             )
         }
@@ -904,7 +960,7 @@ private fun findFreeDuplicateFileName(
     return "$fileName ($index)"
 }
 
-fun Context.exportPreferences(preferences: NotallyXPreferences, uri: Uri): Boolean {
+fun Context.exportPreferences(preferences: OmniTallyPreferences, uri: Uri): Boolean {
     try {
         contentResolver.openOutputStream(uri)?.use {
             it.write(preferences.toJsonString().toByteArray())
@@ -936,7 +992,7 @@ private fun ContextWrapper.tryPostErrorNotification(e: Throwable) {
                 } catch (e: IllegalArgumentException) {
                     createReportBugIntent(
                         stackTrace =
-                            "PLEASE PASTE YOUR NOTALLYX LOGS FILE CONTENT HERE (Error Notification -> 'View Logs')",
+                            "PLEASE PASTE YOUR OMNITALLY LOGS FILE CONTENT HERE (Error Notification -> 'View Logs')",
                         title = "Auto Backup failed",
                         body = "Error occurred during auto backup, see logs below.",
                     )

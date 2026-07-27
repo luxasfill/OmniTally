@@ -3,11 +3,13 @@ package com.philkes.notallyx.utils.changehistory
 import android.graphics.Typeface
 import android.text.Editable
 import android.text.SpannableStringBuilder
+import android.text.style.BulletSpan
 import android.text.style.CharacterStyle
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.TypefaceSpan
 import android.text.style.URLSpan
+import android.text.style.UnderlineSpan
 import androidx.core.text.getSpans
 import com.philkes.notallyx.data.model.SpanRepresentation
 import com.philkes.notallyx.presentation.applySpans
@@ -109,11 +111,23 @@ class EditTextState(text: Editable, val cursorPos: Int) {
                 is StrikethroughSpan -> {
                     representation.strikethrough = true
                 }
+                is UnderlineSpan -> {
+                    representation.underline = true
+                }
             }
 
             if (representation.isNotUseless()) {
                 representations.add(representation)
             }
+        }
+
+        text.getSpans(0, text.length, BulletSpan::class.java).forEach { span ->
+            val end = text.getSpanEnd(span)
+            val start = text.getSpanStart(span)
+            if (start < 0 || end < 0 || start >= text.length || end > text.length) {
+                return@forEach
+            }
+            representations.add(SpanRepresentation(start = start, end = end, bullet = true))
         }
 
         return representations

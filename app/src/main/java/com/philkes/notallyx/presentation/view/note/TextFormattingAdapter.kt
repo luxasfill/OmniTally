@@ -2,10 +2,13 @@ package com.philkes.notallyx.presentation.view.note
 
 import android.content.Context
 import android.graphics.Typeface
+import android.text.style.BulletSpan
+import android.text.style.CharacterStyle
 import android.text.style.StrikethroughSpan
 import android.text.style.StyleSpan
 import android.text.style.TypefaceSpan
 import android.text.style.URLSpan
+import android.text.style.UnderlineSpan
 import androidx.annotation.ColorInt
 import com.philkes.notallyx.R
 import com.philkes.notallyx.presentation.createBoldSpan
@@ -53,6 +56,16 @@ class TextFormattingAdapter(
             it.checked = !it.checked
             notifyItemChanged(2)
         }
+    private val underline: Toggle =
+        Toggle(R.string.underline, R.drawable.format_underline, false) {
+            if (!it.checked) {
+                editText.applySpan(UnderlineSpan())
+            } else {
+                editText.clearFormatting(type = StylableEditTextWithHistory.TextStyleType.UNDERLINE)
+            }
+            it.checked = !it.checked
+            notifyItemChanged(3)
+        }
     private val strikethrough: Toggle =
         Toggle(R.string.strikethrough, R.drawable.format_strikethrough, false) {
             if (!it.checked) {
@@ -63,7 +76,7 @@ class TextFormattingAdapter(
                 )
             }
             it.checked = !it.checked
-            notifyItemChanged(3)
+            notifyItemChanged(4)
         }
     private val monospace: Toggle =
         Toggle(R.string.monospace, R.drawable.code, false) {
@@ -73,16 +86,33 @@ class TextFormattingAdapter(
                 editText.clearFormatting(type = StylableEditTextWithHistory.TextStyleType.MONOSPACE)
             }
             it.checked = !it.checked
-            notifyItemChanged(4)
+            notifyItemChanged(5)
+        }
+    private val bullet: Toggle =
+        Toggle(R.string.bullet, R.drawable.format_list_bulleted, false) {
+            if (!it.checked) {
+                editText.applyParagraphSpan(BulletSpan(8))
+            } else {
+                editText.clearParagraphFormatting(
+                    type = StylableEditTextWithHistory.TextStyleType.BULLET
+                )
+            }
+            it.checked = !it.checked
+            notifyItemChanged(6)
         }
     private val clearFormat: Toggle =
         Toggle(R.string.clear_formatting, R.drawable.format_clear, false) {
             editText.clearFormatting()
+            editText.clearParagraphFormatting(
+                type = StylableEditTextWithHistory.TextStyleType.BULLET
+            )
             updateTextFormattingToggles()
         }
 
     init {
-        toggles.addAll(listOf(link, bold, italic, strikethrough, monospace, clearFormat))
+        toggles.addAll(
+            listOf(link, bold, italic, underline, strikethrough, monospace, bullet, clearFormat)
+        )
     }
 
     internal fun updateTextFormattingToggles(
@@ -91,10 +121,11 @@ class TextFormattingAdapter(
     ) {
         var boldSpanFound = false
         var italicSpanFound = false
+        var underlineSpanFound = false
         var linkSpanFound = false
         var monospaceSpanFound = false
         var strikethroughSpanFound = false
-        editText.getSpans(selStart, selEnd).forEach { span ->
+        editText.text?.getSpans(selStart, selEnd, CharacterStyle::class.java)?.forEach { span ->
             when (span) {
                 is StyleSpan -> {
                     when (span.style) {
@@ -102,17 +133,21 @@ class TextFormattingAdapter(
                         Typeface.ITALIC -> italicSpanFound = true
                     }
                 }
-
                 is URLSpan -> linkSpanFound = true
                 is TypefaceSpan -> if (span.family == "monospace") monospaceSpanFound = true
                 is StrikethroughSpan -> strikethroughSpanFound = true
+                is UnderlineSpan -> underlineSpanFound = true
             }
         }
+        val bulletSpans = editText.text?.getSpans(selStart, selEnd, BulletSpan::class.java)
+        val bulletSpanFound = bulletSpans != null && bulletSpans.isNotEmpty()
         bold.checked = boldSpanFound
         italic.checked = italicSpanFound
+        underline.checked = underlineSpanFound
         link.checked = linkSpanFound
         monospace.checked = monospaceSpanFound
         strikethrough.checked = strikethroughSpanFound
+        bullet.checked = bulletSpanFound
         notifyDataSetChanged()
     }
 }

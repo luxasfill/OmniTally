@@ -221,7 +221,7 @@ class ViewImageActivity : LockedActivity<ActivityViewImageBinding>() {
                     .apply {
                         type = image.mimeType
                         addCategory(Intent.CATEGORY_OPENABLE)
-                        putExtra(Intent.EXTRA_TITLE, "NotallyX Image")
+                        putExtra(Intent.EXTRA_TITLE, "OmniTally Image")
                     }
                     .wrapWithChooser(this)
             currentImage = image

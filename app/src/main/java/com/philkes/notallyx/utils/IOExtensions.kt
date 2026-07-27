@@ -17,7 +17,7 @@ import com.philkes.notallyx.data.model.BaseNote
 import com.philkes.notallyx.data.model.FileAttachment
 import com.philkes.notallyx.data.model.isImage
 import com.philkes.notallyx.presentation.view.misc.Progress
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.progress.DeleteAttachmentProgress
 import com.philkes.notallyx.presentation.widget.WidgetProvider
 import java.io.File
@@ -39,6 +39,7 @@ private const val TAG = "IO"
 const val SUBFOLDER_IMAGES = "Images"
 const val SUBFOLDER_FILES = "Files"
 const val SUBFOLDER_AUDIOS = "Audios"
+const val SUBFOLDER_DRAWINGS = "Drawings"
 
 private fun ContextWrapper.getExternalImagesDirectory() =
     getExternalMediaDirectory(SUBFOLDER_IMAGES)
@@ -46,6 +47,9 @@ private fun ContextWrapper.getExternalImagesDirectory() =
 private fun ContextWrapper.getExternalAudioDirectory() = getExternalMediaDirectory(SUBFOLDER_AUDIOS)
 
 private fun ContextWrapper.getExternalFilesDirectory() = getExternalMediaDirectory(SUBFOLDER_FILES)
+
+private fun ContextWrapper.getExternalDrawingsDirectory() =
+    getExternalMediaDirectory(SUBFOLDER_DRAWINGS)
 
 fun ContextWrapper.getExternalMediaDirectory() = getExternalMediaDirectory("")
 
@@ -75,13 +79,24 @@ fun ContextWrapper.getPrivateAudioDirectory(): File {
     return dir
 }
 
+fun ContextWrapper.getPrivateDrawingsDirectory(): File {
+    val dir = File(getPrivateAttachmentsRoot(), SUBFOLDER_DRAWINGS)
+    if (!dir.exists()) dir.mkdir()
+    return dir
+}
+
 private fun ContextWrapper.isDataInPublicEnabled(): Boolean {
-    return NotallyXPreferences.getInstance(this).dataInPublicFolder.value
+    return OmniTallyPreferences.getInstance(this).dataInPublicFolder.value
 }
 
 fun ContextWrapper.getCurrentImagesDirectory(): File {
     return if (isDataInPublicEnabled()) getExternalImagesDirectory()
     else getPrivateImagesDirectory()
+}
+
+fun ContextWrapper.getCurrentDrawingsDirectory(): File {
+    return if (isDataInPublicEnabled()) getExternalDrawingsDirectory()
+    else getPrivateDrawingsDirectory()
 }
 
 fun ContextWrapper.getCurrentFilesDirectory(): File {
@@ -118,6 +133,7 @@ fun ContextWrapper.resolveAttachmentFile(subfolder: String, localName: String): 
             SUBFOLDER_IMAGES -> getCurrentImagesDirectory()
             SUBFOLDER_FILES -> getCurrentFilesDirectory()
             SUBFOLDER_AUDIOS -> getCurrentAudioDirectory()
+            SUBFOLDER_DRAWINGS -> getCurrentDrawingsDirectory()
             else -> null
         }
     val alt =
@@ -125,6 +141,7 @@ fun ContextWrapper.resolveAttachmentFile(subfolder: String, localName: String): 
             SUBFOLDER_IMAGES -> getAlternateImagesDirectory()
             SUBFOLDER_FILES -> getAlternateFilesDirectory()
             SUBFOLDER_AUDIOS -> getAlternateAudioDirectory()
+            SUBFOLDER_DRAWINGS -> getCurrentDrawingsDirectory()
             else -> null
         }
     val inCurrent = current?.let { File(it, localName) }
@@ -141,7 +158,7 @@ fun ContextWrapper.resolveAttachmentFile(subfolder: String, localName: String): 
 fun ContextWrapper.migrateAllAttachments(toPrivate: Boolean): Pair<Int, Int> {
     var moved = 0
     var failed = 0
-    val sources = listOf(SUBFOLDER_IMAGES, SUBFOLDER_FILES, SUBFOLDER_AUDIOS)
+    val sources = listOf(SUBFOLDER_IMAGES, SUBFOLDER_FILES, SUBFOLDER_AUDIOS, SUBFOLDER_DRAWINGS)
     sources.forEach { sub ->
         val (srcRoot, dstRoot) =
             if (toPrivate) {
@@ -150,6 +167,7 @@ fun ContextWrapper.migrateAllAttachments(toPrivate: Boolean): Pair<Int, Int> {
                         SUBFOLDER_IMAGES -> getExternalImagesDirectory()
                         SUBFOLDER_FILES -> getExternalFilesDirectory()
                         SUBFOLDER_AUDIOS -> getExternalAudioDirectory()
+                        SUBFOLDER_DRAWINGS -> getExternalDrawingsDirectory()
                         else -> null
                     }
                 val dst =
@@ -157,6 +175,7 @@ fun ContextWrapper.migrateAllAttachments(toPrivate: Boolean): Pair<Int, Int> {
                         SUBFOLDER_IMAGES -> getPrivateImagesDirectory()
                         SUBFOLDER_FILES -> getPrivateFilesDirectory()
                         SUBFOLDER_AUDIOS -> getPrivateAudioDirectory()
+                        SUBFOLDER_DRAWINGS -> getPrivateDrawingsDirectory()
                         else -> null
                     }
                 Pair(src, dst)
@@ -166,6 +185,7 @@ fun ContextWrapper.migrateAllAttachments(toPrivate: Boolean): Pair<Int, Int> {
                         SUBFOLDER_IMAGES -> getPrivateImagesDirectory()
                         SUBFOLDER_FILES -> getPrivateFilesDirectory()
                         SUBFOLDER_AUDIOS -> getPrivateAudioDirectory()
+                        SUBFOLDER_DRAWINGS -> getPrivateDrawingsDirectory()
                         else -> null
                     }
                 val dst =
@@ -173,6 +193,7 @@ fun ContextWrapper.migrateAllAttachments(toPrivate: Boolean): Pair<Int, Int> {
                         SUBFOLDER_IMAGES -> getExternalImagesDirectory()
                         SUBFOLDER_FILES -> getExternalFilesDirectory()
                         SUBFOLDER_AUDIOS -> getExternalAudioDirectory()
+                        SUBFOLDER_DRAWINGS -> getExternalDrawingsDirectory()
                         else -> null
                     }
                 Pair(src, dst)
@@ -314,6 +335,7 @@ fun ContextWrapper.deleteAttachments(
         attachments.addAll(note.images)
         attachments.addAll(note.files)
         attachments.addAll(note.audios)
+        attachments.addAll(note.drawings)
     }
     deleteAttachments(attachments, notes.map { it.id }.toLongArray(), progress)
 }
@@ -328,13 +350,21 @@ fun ContextWrapper.deleteAttachments(
         val imageRoot = getExternalImagesDirectory()
         val audioRoot = getExternalAudioDirectory()
         val fileRoot = getExternalFilesDirectory()
+        val drawingRoot = getExternalDrawingsDirectory()
         attachments.forEachIndexed { index, attachment ->
             val file =
                 when (attachment) {
                     is Audio -> if (audioRoot != null) File(audioRoot, attachment.name) else null
 
                     is FileAttachment -> {
-                        val root = if (attachment.isImage) imageRoot else fileRoot
+                        val root =
+                            if (
+                                attachment.mimeType == "image/png" &&
+                                    drawingRoot != null &&
+                                    File(drawingRoot, attachment.localName).exists()
+                            )
+                                drawingRoot
+                            else if (attachment.isImage) imageRoot else fileRoot
                         if (root != null) File(root, attachment.localName) else null
                     }
                 }

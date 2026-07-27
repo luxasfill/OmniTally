@@ -21,12 +21,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.viewbinding.ViewBinding
 import com.google.android.material.color.DynamicColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.philkes.notallyx.NotallyXApplication
+import com.philkes.notallyx.OmniTallyApplication
 import com.philkes.notallyx.R
 import com.philkes.notallyx.presentation.setupProgressDialog
 import com.philkes.notallyx.presentation.showToast
 import com.philkes.notallyx.presentation.viewmodel.BaseNoteModel
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.Theme
 import com.philkes.notallyx.presentation.viewmodel.progress.MigrationProgress
 import com.philkes.notallyx.utils.log
@@ -41,20 +41,20 @@ import kotlinx.coroutines.withContext
 
 abstract class LockedActivity<T : ViewBinding> : AppCompatActivity() {
 
-    private lateinit var notallyXApplication: NotallyXApplication
+    private lateinit var notallyXApplication: OmniTallyApplication
     private lateinit var biometricAuthenticationActivityResultLauncher:
         ActivityResultLauncher<Intent>
 
     internal lateinit var binding: T
-    internal lateinit var preferences: NotallyXPreferences
+    internal lateinit var preferences: OmniTallyPreferences
     val baseModel: BaseNoteModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setupGlobalExceptionHandler()
         initViewModel()
-        notallyXApplication = (application as NotallyXApplication)
-        preferences = NotallyXPreferences.getInstance(notallyXApplication)
+        notallyXApplication = (application as OmniTallyApplication)
+        preferences = OmniTallyPreferences.getInstance(notallyXApplication)
         if (preferences.useDynamicColors.value) {
             if (DynamicColors.isDynamicColorAvailable()) {
                 DynamicColors.applyToActivitiesIfAvailable(notallyXApplication)

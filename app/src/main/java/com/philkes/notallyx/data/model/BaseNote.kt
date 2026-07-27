@@ -7,7 +7,14 @@ import androidx.room.PrimaryKey
 /** Format: `#RRGGBB` or `#AARRGGBB` or [BaseNote.COLOR_DEFAULT] */
 typealias ColorString = String
 
-@Entity(indices = [Index(value = ["id", "folder", "pinned", "timestamp", "labels"])])
+@Entity(
+    indices =
+        [
+            Index(value = ["folder", "pinned", "timestamp"]),
+            Index(value = ["modifiedTimestamp"]),
+            Index(value = ["folder", "modifiedTimestamp"]),
+        ]
+)
 data class BaseNote(
     @PrimaryKey(autoGenerate = true) val id: Long,
     val type: Type,
@@ -27,6 +34,7 @@ data class BaseNote(
     val reminders: List<Reminder>,
     val viewMode: NoteViewMode,
     val isPinnedToStatus: Boolean,
+    val drawings: List<FileAttachment> = emptyList(),
 ) : Item {
 
     companion object {
@@ -47,6 +55,7 @@ data class BaseNote(
         if (title != other.title) return false
         if (pinned != other.pinned) return false
         if (timestamp != other.timestamp) return false
+        if (modifiedTimestamp != other.modifiedTimestamp) return false
         if (labels != other.labels) return false
         if (body != other.body) return false
         if (spans != other.spans) return false
@@ -57,6 +66,7 @@ data class BaseNote(
         if (reminders != other.reminders) return false
         if (viewMode != other.viewMode) return false
         if (isPinnedToStatus != other.isPinnedToStatus) return false
+        if (drawings != other.drawings) return false
 
         return true
     }
@@ -78,6 +88,7 @@ data class BaseNote(
         result = 31 * result + title.hashCode()
         result = 31 * result + pinned.hashCode()
         result = 31 * result + timestamp.hashCode()
+        result = 31 * result + modifiedTimestamp.hashCode()
         result = 31 * result + labels.hashCode()
         result = 31 * result + body.hashCode()
         result = 31 * result + spans.hashCode()
@@ -88,6 +99,7 @@ data class BaseNote(
         result = 31 * result + reminders.hashCode()
         result = 31 * result + viewMode.hashCode()
         result = 31 * result + isPinnedToStatus.hashCode()
+        result = 31 * result + drawings.hashCode()
         return result
     }
 }
@@ -101,5 +113,6 @@ fun BaseNote.deepCopy(): BaseNote {
         files = files.map { it.copy() }.toMutableList(),
         audios = audios.map { it.copy() }.toMutableList(),
         reminders = reminders.map { it.copy() }.toMutableList(),
+        drawings = drawings.map { it.copy() }.toMutableList(),
     )
 }

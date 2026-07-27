@@ -10,7 +10,7 @@ import androidx.work.WorkerParameters
 import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.model.Converters
 import com.philkes.notallyx.presentation.format
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import java.util.Date
 import kotlin.collections.isNotEmpty
 
@@ -30,7 +30,7 @@ private const val ONE_DAY_MILLIS = 24 * 60 * 60 * 1000L
 
 suspend fun ContextWrapper.removeOldDeletedNotes(): ListenableWorker.Result {
     val app = applicationContext as Application
-    val preferences = NotallyXPreferences.getInstance(app)
+    val preferences = OmniTallyPreferences.getInstance(app)
     val days = preferences.autoRemoveDeletedNotesAfterDays.value
     if (days <= 0) return ListenableWorker.Result.success()
 

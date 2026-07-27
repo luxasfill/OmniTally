@@ -32,7 +32,7 @@
           android:singleLine="true"
           android:scrollHorizontally="true"
           android:textSize="16sp"
-          android:contentDescription="Input"/>
+          android:contentDescription="@string/input"/>
 
     </com.google.android.material.textfield.TextInputLayout>
 

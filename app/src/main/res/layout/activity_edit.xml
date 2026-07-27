@@ -71,37 +71,6 @@
                 android:paddingBottom="?attr/actionBarSize"
                 >
 
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:id="@+id/ImageLayout"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:layout_constraintTop_toTopOf="parent">
-
-                    <com.philkes.notallyx.presentation.view.misc.AspectRatioRecyclerView
-                        android:id="@+id/ImagePreview"
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        app:layout_constraintTop_toTopOf="parent"
-                        />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/ImagePreviewPosition"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:clickable="false"
-                        android:stateListAnimator="@null"
-                        android:textAppearance="?attr/textAppearanceBodySmall"
-                        android:visibility="visible"
-                        app:chipIcon="@drawable/add_images"
-                        app:chipStartPadding="8dp"
-                        app:layout_constraintEnd_toEndOf="@id/ImagePreview"
-                        app:layout_constraintTop_toTopOf="@id/ImagePreview"
-                        app:textStartPadding="2dp"
-                        android:layout_marginEnd="8dp"
-                        android:layout_marginTop="8dp"
-                        />
-                </androidx.constraintlayout.widget.ConstraintLayout>
-
                 <com.philkes.notallyx.presentation.view.misc.StylableEditTextWithHistory
                     android:id="@+id/EnterTitle"
                     android:layout_width="match_parent"
@@ -159,29 +128,6 @@
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/FilesPreview"
-                    android:paddingBottom="8dp"
-                    android:layout_marginStart="20dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    />
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/LabelGroup"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:paddingStart="24dp"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="24dp"
-                    android:paddingBottom="8dp"
-                    android:alpha="@fraction/alpha_secondary" />
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="?android:attr/listDivider" />
-
                 <com.philkes.notallyx.presentation.view.misc.StylableEditTextWithHistory
                     android:id="@+id/EnterBody"
                     android:layout_width="match_parent"
@@ -235,6 +181,109 @@
                     android:paddingEnd="4dp"
                     app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="8dp"
+                    android:background="?android:attr/listDivider" />
+
+                <TextView
+                    android:id="@+id/ImageHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="24dp"
+                    android:paddingTop="16dp"
+                    android:paddingEnd="24dp"
+                    android:paddingBottom="12dp"
+                    android:text="@string/images"
+                    android:textAppearance="?attr/textAppearanceSubtitle2"
+                    android:visibility="gone" />
+
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:id="@+id/ImageLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <com.philkes.notallyx.presentation.view.misc.AspectRatioRecyclerView
+                        android:id="@+id/ImagePreview"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        app:layout_constraintTop_toTopOf="parent"
+                        />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/ImagePreviewPosition"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="false"
+                        android:stateListAnimator="@null"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:visibility="visible"
+                        app:chipIcon="@drawable/add_images"
+                        app:chipStartPadding="8dp"
+                        app:layout_constraintEnd_toEndOf="@id/ImagePreview"
+                        app:layout_constraintTop_toTopOf="@id/ImagePreview"
+                        app:textStartPadding="2dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_marginTop="8dp"
+                        />
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <TextView
+                    android:id="@+id/FilesHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="24dp"
+                    android:paddingTop="16dp"
+                    android:paddingEnd="24dp"
+                    android:paddingBottom="12dp"
+                    android:text="@string/attachments_label"
+                    android:textAppearance="?attr/textAppearanceSubtitle2"
+                    android:visibility="gone" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/FilesPreview"
+                    android:paddingBottom="8dp"
+                    android:layout_marginStart="20dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/LabelGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="24dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="24dp"
+                    android:paddingBottom="8dp"
+                    android:alpha="@fraction/alpha_secondary" />
+
+                <TextView
+                    android:id="@+id/DrawingHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="24dp"
+                    android:paddingTop="16dp"
+                    android:paddingEnd="24dp"
+                    android:paddingBottom="12dp"
+                    android:text="@string/drawings"
+                    android:textAppearance="?attr/textAppearanceSubtitle2"
+                    android:visibility="gone" />
+
+                <com.philkes.notallyx.presentation.view.misc.AspectRatioRecyclerView
+                    android:id="@+id/DrawingPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:clipToPadding="false"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:visibility="gone"
+                    android:overScrollMode="never"
+                    android:orientation="horizontal"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
                 <TextView
                     android:id="@+id/AudioHeader"
                     android:layout_width="match_parent"
@@ -252,7 +301,6 @@
                     android:layout_height="wrap_content"
                     android:overScrollMode="never"
                     app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
 
             </LinearLayout>
 

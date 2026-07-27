@@ -14,7 +14,7 @@ import com.philkes.notallyx.presentation.view.note.listitem.adapter.CheckedListI
 import com.philkes.notallyx.presentation.view.note.listitem.adapter.ListItemAdapter
 import com.philkes.notallyx.presentation.view.note.listitem.adapter.ListItemVH
 import com.philkes.notallyx.presentation.view.note.listitem.sorting.SortedItemsList
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.autoSortByCheckedEnabled
 import com.philkes.notallyx.utils.changehistory.ChangeCheckedForAllChange
 import com.philkes.notallyx.utils.changehistory.ChangeHistory
@@ -44,7 +44,7 @@ data class ListState(
 class ListManager(
     private val recyclerView: RecyclerView,
     private val changeHistory: ChangeHistory,
-    private val preferences: NotallyXPreferences,
+    private val preferences: OmniTallyPreferences,
     private val inputMethodManager: InputMethodManager?,
     private val endSearch: (() -> Unit)?,
     val refreshSearch: ((refocusView: View?) -> Unit)?,

@@ -43,6 +43,7 @@ import com.philkes.notallyx.presentation.activity.main.MainActivity
 import com.philkes.notallyx.presentation.activity.main.MainActivity.Companion.EXTRA_FRAGMENT_TO_OPEN
 import com.philkes.notallyx.presentation.activity.main.MainActivity.Companion.EXTRA_SKIP_START_VIEW_ON_BACK
 import com.philkes.notallyx.presentation.activity.main.fragment.DisplayLabelFragment.Companion.EXTRA_DISPLAYED_LABEL
+import com.philkes.notallyx.presentation.activity.note.drawing.ViewDrawingActivity
 import com.philkes.notallyx.presentation.activity.note.reminders.RemindersActivity
 import com.philkes.notallyx.presentation.add
 import com.philkes.notallyx.presentation.addIconButton
@@ -66,12 +67,13 @@ import com.philkes.notallyx.presentation.view.note.action.ActionSelectionBottomS
 import com.philkes.notallyx.presentation.view.note.action.AddBottomSheet
 import com.philkes.notallyx.presentation.view.note.action.MoreNoteBottomSheet
 import com.philkes.notallyx.presentation.view.note.audio.AudioAdapter
+import com.philkes.notallyx.presentation.view.note.preview.PreviewDrawingAdapter
 import com.philkes.notallyx.presentation.view.note.preview.PreviewFileAdapter
 import com.philkes.notallyx.presentation.view.note.preview.PreviewImageAdapter
 import com.philkes.notallyx.presentation.viewmodel.NotallyModel
 import com.philkes.notallyx.presentation.viewmodel.preference.EditAction
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.NotesSortBy
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.displaySmallerSize
 import com.philkes.notallyx.presentation.viewmodel.preference.editBodySize
 import com.philkes.notallyx.presentation.viewmodel.preference.editTitleSize
@@ -93,6 +95,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEditBinding>() {
     private lateinit var audioAdapter: AudioAdapter
@@ -194,7 +197,9 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
                 updateModel()
-                runBlocking(Dispatchers.IO) { saveNote() }
+                runBlocking(Dispatchers.IO) {
+                    withTimeoutOrNull(5000L) { saveNote(checkAutoSave = false) }
+                }
             } catch (e: Exception) {
                 log(TAG, msg = "Saving note on Crash failed", throwable = e)
             } finally {
@@ -385,24 +390,24 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
                 oldAction,
                 title = getString(R.string.swap_action),
                 onReset = {
-                    val prefs = NotallyXPreferences.getInstance(this)
+                    val prefs = OmniTallyPreferences.getInstance(this)
                     if (isBottomBar) {
                         prefs.editNoteActivityBottomAction.save(
-                            NotallyXPreferences.DEFAULT_EDIT_NOTE_BOTTOM_ACTION
+                            OmniTallyPreferences.DEFAULT_EDIT_NOTE_BOTTOM_ACTION
                         )
                     } else {
                         val currentActions =
                             prefs.getSafeEditNoteActivityTopActions().toMutableList()
                         if (index in currentActions.indices) {
                             currentActions[index] =
-                                NotallyXPreferences.DEFAULT_EDIT_NOTE_TOP_ACTIONS[index]
+                                OmniTallyPreferences.DEFAULT_EDIT_NOTE_TOP_ACTIONS[index]
                             prefs.editNoteActivityTopActions.save(currentActions)
                         }
                     }
                 },
                 colorInt,
             ) { newAction ->
-                val prefs = NotallyXPreferences.getInstance(this)
+                val prefs = OmniTallyPreferences.getInstance(this)
                 if (isBottomBar) {
                     prefs.editNoteActivityBottomAction.save(newAction)
                 } else {
@@ -619,7 +624,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
     }
 
     protected open fun openMoreOptionsBottomSheet() {
-        val prefs = NotallyXPreferences.getInstance(this@EditActivity)
+        val prefs = OmniTallyPreferences.getInstance(this@EditActivity)
         val topActions = prefs.getSafeEditNoteActivityTopActions()
         val bottomAction = prefs.editNoteActivityBottomAction.value
 
@@ -830,8 +835,13 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
 
         notallyModel.images.observe(this) { list ->
             imageAdapter.submitList(list)
-            binding.ImagePreview.isVisible = list.isNotEmpty()
+            val hasImages = list.isNotEmpty()
+            binding.ImagePreview.isVisible = hasImages
             binding.ImagePreviewPosition.isVisible = list.size > 1
+            binding.ImageHeader.isVisible = hasImages
+            if (hasImages) {
+                binding.ImageHeader.text = getString(R.string.images) + " (${list.size})"
+            }
         }
     }
 
@@ -880,6 +890,10 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
                     }
                 }
             }
+            binding.FilesHeader.isVisible = visible
+            if (visible) {
+                binding.FilesHeader.text = getString(R.string.attachments_label) + " (${list.size})"
+            }
         }
     }
 
@@ -925,6 +939,35 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
             audioAdapter.submitList(list)
             binding.AudioHeader.isVisible = list.isNotEmpty()
             binding.AudioRecyclerView.isVisible = list.isNotEmpty()
+        }
+    }
+
+    private fun setupDrawings() {
+        val drawingAdapter =
+            PreviewDrawingAdapter(notallyModel.drawingsRoot) { position ->
+                val intent = Intent(this, ViewDrawingActivity::class.java)
+                intent.putExtra(ViewDrawingActivity.EXTRA_POSITION, position)
+                intent.putExtra(EXTRA_SELECTED_BASE_NOTE, notallyModel.id)
+                actionHandler.addDrawingActivityResultLauncher.launch(intent)
+            }
+        binding.DrawingPreview.apply {
+            setHasFixedSize(false)
+            adapter = drawingAdapter
+            layoutManager = LinearLayoutManager(this@EditActivity, RecyclerView.HORIZONTAL, false)
+        }
+
+        notallyModel.drawings.observe(this) { list ->
+            val hasDrawings = list.isNotEmpty()
+            drawingAdapter.submitList(list)
+            binding.DrawingPreview.isVisible = hasDrawings
+            binding.DrawingHeader.isVisible = hasDrawings
+            if (hasDrawings) {
+                binding.DrawingHeader.text = getString(R.string.drawings) + " (${list.size})"
+            }
+        }
+
+        binding.DrawingPreview.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            updateJumpButtonsVisibility()
         }
     }
 
@@ -987,6 +1030,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         setupImages()
         setupFiles()
         setupAudios()
+        setupDrawings()
         notallyModel.addingFiles.setupProgressDialog(this)
         notallyModel.eventBus.observe(this) { event ->
             event.handle { errors -> displayFileErrors(errors) }

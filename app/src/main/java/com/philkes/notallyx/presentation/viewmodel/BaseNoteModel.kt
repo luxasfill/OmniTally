@@ -54,10 +54,10 @@ import com.philkes.notallyx.presentation.view.misc.NotNullLiveData
 import com.philkes.notallyx.presentation.view.misc.Progress
 import com.philkes.notallyx.presentation.viewmodel.preference.BasePreference
 import com.philkes.notallyx.presentation.viewmodel.preference.BiometricLock
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.EMPTY_PATH
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.START_VIEW_DEFAULT
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.START_VIEW_UNLABELED
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.EMPTY_PATH
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.START_VIEW_DEFAULT
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.START_VIEW_UNLABELED
 import com.philkes.notallyx.presentation.viewmodel.preference.Theme
 import com.philkes.notallyx.presentation.viewmodel.progress.ExportNotesProgress
 import com.philkes.notallyx.utils.ActionMode
@@ -76,6 +76,7 @@ import com.philkes.notallyx.utils.cancelPinAndReminders
 import com.philkes.notallyx.utils.copyToLarge
 import com.philkes.notallyx.utils.deleteAttachments
 import com.philkes.notallyx.utils.getBackupDir
+import com.philkes.notallyx.utils.getCurrentDrawingsDirectory
 import com.philkes.notallyx.utils.getCurrentImagesDirectory
 import com.philkes.notallyx.utils.getExternalMediaDirectory
 import com.philkes.notallyx.utils.log
@@ -135,10 +136,13 @@ class BaseNoteModel(private val app: Application) : AndroidViewModel(app) {
     private val others = Header(app.getString(R.string.others))
     private val archived = Header(app.getString(R.string.archived))
 
-    val preferences = NotallyXPreferences.getInstance(app)
+    val preferences = OmniTallyPreferences.getInstance(app)
 
     val imageRoot
         get() = app.getCurrentImagesDirectory()
+
+    val drawingsRoot
+        get() = app.getCurrentDrawingsDirectory()
 
     val importProgress = MutableLiveData<Progress>()
     val progress = MutableLiveData<Progress>()
@@ -408,6 +412,25 @@ class BaseNoteModel(private val app: Application) : AndroidViewModel(app) {
 
             app.showToast(app.exportedText(exportedNotesAndAttachments))
             onComplete?.invoke()
+        }
+    }
+
+    fun migrateBackup(uri: Uri) {
+        viewModelScope.launch {
+            val exportedNotesAndAttachments =
+                withContext(Dispatchers.IO) {
+                    app.log(TAG, msg = "Migrating backup to '$uri'...")
+                    val userPassword = preferences.backupPassword.value
+                    return@withContext app.exportAsZip(
+                            uri,
+                            password = userPassword,
+                            backupProgress = progress,
+                            skipInternalEncryption = true,
+                        )
+                        .also { app.log(TAG, msg = "Finished migrating backup to '$uri'") }
+                }
+
+            app.showToast(app.exportedText(exportedNotesAndAttachments))
         }
     }
 

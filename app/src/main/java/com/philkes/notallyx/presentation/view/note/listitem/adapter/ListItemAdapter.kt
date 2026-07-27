@@ -10,14 +10,14 @@ import com.philkes.notallyx.data.model.ListItem
 import com.philkes.notallyx.data.model.NoteViewMode
 import com.philkes.notallyx.presentation.view.note.listitem.HighlightText
 import com.philkes.notallyx.presentation.view.note.listitem.ListManager
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.TextSizeSp
 
 class ListItemAdapter(
     @ColorInt var backgroundColor: Int,
     private val textSize: TextSizeSp,
     elevation: Float,
-    private val preferences: NotallyXPreferences,
+    private val preferences: OmniTallyPreferences,
     private val listManager: ListManager,
     private val isCheckedListAdapter: Boolean,
     scrollView: NestedScrollView,

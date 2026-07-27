@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import com.philkes.notallyx.data.model.BaseNote
 import com.philkes.notallyx.presentation.activity.note.PickNoteActivity
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.widget.WidgetProvider
 
 class ConfigureWidgetActivity : PickNoteActivity() {
@@ -27,7 +27,7 @@ class ConfigureWidgetActivity : PickNoteActivity() {
 
     override fun onClick(position: Int) {
         if (position != -1) {
-            val preferences = NotallyXPreferences.getInstance(application)
+            val preferences = OmniTallyPreferences.getInstance(application)
             val baseNote = adapter.getItem(position) as BaseNote
             preferences.updateWidget(id, baseNote.id, baseNote.type)
 

@@ -7,13 +7,13 @@ import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
-import com.philkes.notallyx.NotallyXApplication
+import com.philkes.notallyx.OmniTallyApplication
 import com.philkes.notallyx.R
 import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.model.BaseNote
 import com.philkes.notallyx.data.model.ListItem
 import com.philkes.notallyx.data.model.Type
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences
 import com.philkes.notallyx.presentation.viewmodel.preference.displayBodySize
 import com.philkes.notallyx.presentation.viewmodel.preference.displayTitleSize
 import com.philkes.notallyx.presentation.widget.WidgetProvider.Companion.extractWidgetColors
@@ -22,18 +22,15 @@ import com.philkes.notallyx.presentation.widget.WidgetProvider.Companion.getWidg
 import com.philkes.notallyx.presentation.widget.WidgetProvider.Companion.getWidgetSelectNoteIntent
 
 class WidgetFactory(
-    private val app: NotallyXApplication,
+    private val app: OmniTallyApplication,
     private val id: Long,
     private val widgetId: Int,
 ) : RemoteViewsService.RemoteViewsFactory {
 
     private var baseNote: BaseNote? = null
-    private lateinit var database: NotallyDatabase
-    private val preferences = NotallyXPreferences.getInstance(app)
-
-    init {
-        NotallyDatabase.getDatabase(app).observeForever { database = it }
-    }
+    private var database: NotallyDatabase =
+        NotallyDatabase.getDatabase(app, observePreferences = false).value
+    private val preferences = OmniTallyPreferences.getInstance(app)
 
     override fun onCreate() {}
 

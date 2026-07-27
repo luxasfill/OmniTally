@@ -28,6 +28,7 @@ import androidx.navigation.navOptions
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
+import com.google.android.material.tabs.TabLayout
 import com.google.android.material.transition.platform.MaterialFade
 import com.philkes.notallyx.R
 import com.philkes.notallyx.data.NotallyDatabase
@@ -49,8 +50,8 @@ import com.philkes.notallyx.presentation.showToast
 import com.philkes.notallyx.presentation.viewmodel.BaseNoteModel.Companion.CURRENT_LABEL_EMPTY
 import com.philkes.notallyx.presentation.viewmodel.BaseNoteModel.Companion.CURRENT_LABEL_NONE
 import com.philkes.notallyx.presentation.viewmodel.ExportMimeType
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.START_VIEW_DEFAULT
-import com.philkes.notallyx.presentation.viewmodel.preference.NotallyXPreferences.Companion.START_VIEW_UNLABELED
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.START_VIEW_DEFAULT
+import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.START_VIEW_UNLABELED
 import com.philkes.notallyx.presentation.viewmodel.progress.MigrationProgress
 import com.philkes.notallyx.utils.LATEST_DATA_SCHEMA
 import com.philkes.notallyx.utils.backup.exportNotes
@@ -92,6 +93,7 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
         setupMenu()
         setupActionMode()
         setupNavigation()
+        setupTabLayout()
 
         setupActivityResultLaunchers()
 
@@ -301,6 +303,7 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
     private fun setupMenu() {
         binding.NavigationView.menu.apply {
             add(0, R.id.Notes, 0, R.string.notes).setCheckable(true).setIcon(R.drawable.home)
+            add(0, R.id.Calendar, 1, R.string.calendar).setCheckable(true).setIcon(R.drawable.event)
 
             addStaticLabelsMenuItems()
             NotallyDatabase.getDatabase(application).observe(this@MainActivity) { database ->
@@ -415,10 +418,12 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
             if (enabled) {
                 binding.Toolbar.visibility = View.GONE
                 binding.ActionMode.visibility = View.VISIBLE
+                binding.TabLayout.visibility = View.GONE
                 binding.DrawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
             } else {
                 binding.Toolbar.visibility = View.VISIBLE
                 binding.ActionMode.visibility = View.GONE
+                updateTabSelection()
                 binding.DrawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNDEFINED)
             }
             actionModeCancelCallback.isEnabled = enabled
@@ -472,6 +477,7 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
 
         navController.addOnDestinationChangedListener { _, destination, bundle ->
             fragmentIdToLoad = destination.id
+            updateTabSelection()
             when (fragmentIdToLoad) {
                 R.id.DisplayLabel ->
                     bundle?.getString(EXTRA_DISPLAYED_LABEL)?.let {
@@ -525,6 +531,36 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
             popUpTo(navController.graph.startDestination) { inclusive = false }
         }
         navController.navigate(id, null, options)
+    }
+
+    private fun setupTabLayout() {
+        val tabLayout = binding.TabLayout
+        tabLayout.addTab(tabLayout.newTab().setText(R.string.notes))
+        tabLayout.addTab(tabLayout.newTab().setText(R.string.calendar))
+        tabLayout.addOnTabSelectedListener(
+            object : TabLayout.OnTabSelectedListener {
+                override fun onTabSelected(tab: TabLayout.Tab) {
+                    val destId = if (tab.position == 0) R.id.Notes else R.id.Calendar
+                    if (navController.currentDestination?.id != destId) {
+                        navigateWithAnimation(destId)
+                    }
+                }
+
+                override fun onTabUnselected(tab: TabLayout.Tab) {}
+
+                override fun onTabReselected(tab: TabLayout.Tab) {}
+            }
+        )
+    }
+
+    internal fun updateTabSelection() {
+        val id = navController.currentDestination?.id
+        binding.TabLayout.visibility = if (id in TAB_DESTINATIONS) View.VISIBLE else View.GONE
+        if (id == R.id.Notes || id == R.id.DisplayLabel || id == R.id.Unlabeled) {
+            binding.TabLayout.getTabAt(0)?.select()
+        } else if (id == R.id.Calendar) {
+            binding.TabLayout.getTabAt(1)?.select()
+        }
     }
 
     private fun setupActivityResultLaunchers() {
@@ -613,6 +649,8 @@ class MainActivity : LockedActivity<ActivityMainBinding>() {
         const val EXTRA_FRAGMENT_TO_OPEN = "notallyx.intent.extra.FRAGMENT_TO_OPEN"
         const val EXTRA_SKIP_START_VIEW_ON_BACK = "notallyx.intent.extra.SKIP_START_VIEW_ON_BACK"
         private const val ACTION_SEARCH = 1001
-        val ACTIVITES_WITHOUT_SEARCH = setOf(R.id.Settings, R.id.Reminders, R.id.Labels)
+        val ACTIVITES_WITHOUT_SEARCH =
+            setOf(R.id.Settings, R.id.Reminders, R.id.Labels, R.id.Calendar)
+        val TAB_DESTINATIONS = setOf(R.id.Notes, R.id.Calendar, R.id.DisplayLabel, R.id.Unlabeled)
     }
 }

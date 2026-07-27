@@ -134,6 +134,8 @@ object Converters {
                 val italic = jsonObject.getSafeBoolean("italic")
                 val monospace = jsonObject.getSafeBoolean("monospace")
                 val strikethrough = jsonObject.getSafeBoolean("strikethrough")
+                val underline = jsonObject.getSafeBoolean("underline")
+                val bullet = jsonObject.getSafeBoolean("bullet")
                 try {
                     val start = jsonObject.getInt("start")
                     val end = jsonObject.getInt("end")
@@ -146,6 +148,8 @@ object Converters {
                         italic,
                         monospace,
                         strikethrough,
+                        underline,
+                        bullet,
                     )
                 } catch (e: Exception) {
                     null
@@ -175,6 +179,8 @@ object Converters {
                 jsonObject.put("italic", representation.italic)
                 jsonObject.put("monospace", representation.monospace)
                 jsonObject.put("strikethrough", representation.strikethrough)
+                jsonObject.put("underline", representation.underline)
+                jsonObject.put("bullet", representation.bullet)
                 jsonObject.put("start", representation.start)
                 jsonObject.put("end", representation.end)
             }
