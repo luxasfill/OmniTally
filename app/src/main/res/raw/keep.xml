@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/apk/res/android"
     tools:shrinkMode="strict"
-    tools:keep="@mipmap/omnitally,@mipmap/omnitally_round" />
+    tools:keep="@mipmap/omnitally,@mipmap/omnitally_round,@mipmap/omnitally_background,@mipmap/omnitally_foreground,@mipmap/omnitally_monochrome" />
