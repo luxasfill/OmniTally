@@ -24,6 +24,7 @@ import com.philkes.notallyx.data.model.Folder
 import com.philkes.notallyx.data.model.Item
 import com.philkes.notallyx.data.model.NoteViewMode
 import com.philkes.notallyx.data.model.Reminder
+import com.philkes.notallyx.data.model.RepetitionTimeUnit
 import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.databinding.FragmentCalendarBinding
 import com.philkes.notallyx.presentation.activity.note.EditListActivity
@@ -154,6 +155,106 @@ class CalendarFragment : Fragment(), ItemListener {
         }
     }
 
+    private fun reminderOccursOnDate(
+        reminder: Reminder,
+        targetYear: Int,
+        targetMonth: Int,
+        targetDay: Int,
+    ): Boolean {
+        val remCal =
+            Calendar.getInstance().apply {
+                time = reminder.dateTime
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+        val rep =
+            reminder.repetition
+                ?: return (remCal.get(Calendar.YEAR) == targetYear &&
+                    remCal.get(Calendar.MONTH) == targetMonth &&
+                    remCal.get(Calendar.DAY_OF_MONTH) == targetDay)
+
+        val targetCal =
+            Calendar.getInstance().apply {
+                set(Calendar.YEAR, targetYear)
+                set(Calendar.MONTH, targetMonth)
+                set(Calendar.DAY_OF_MONTH, targetDay)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+
+        if (targetCal.before(remCal)) return false
+
+        val endCal =
+            reminder.endDate?.let {
+                Calendar.getInstance().apply {
+                    time = it
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }
+            }
+        if (endCal != null && targetCal.after(endCal)) return false
+
+        return when (rep.unit) {
+            RepetitionTimeUnit.DAYS -> {
+                val diffMs = targetCal.timeInMillis - remCal.timeInMillis
+                val diffDays = (diffMs / (1000L * 60 * 60 * 24)).toInt()
+                diffDays % rep.value == 0
+            }
+            RepetitionTimeUnit.WEEKS -> {
+                if (targetCal.get(Calendar.DAY_OF_WEEK) != remCal.get(Calendar.DAY_OF_WEEK))
+                    return false
+                val diffMs = targetCal.timeInMillis - remCal.timeInMillis
+                val diffWeeks = (diffMs / (1000L * 60 * 60 * 24 * 7)).toInt()
+                diffWeeks % rep.value == 0
+            }
+            RepetitionTimeUnit.MONTHS -> {
+                val occurrence = rep.occurrence
+                val dayOfWeek = rep.dayOfWeek
+                if (occurrence != null && dayOfWeek != null) {
+                    val tempCal =
+                        Calendar.getInstance().apply {
+                            set(Calendar.YEAR, targetYear)
+                            set(Calendar.MONTH, targetMonth)
+                            set(Calendar.DAY_OF_MONTH, 1)
+                        }
+                    val occurrences = mutableListOf<Int>()
+                    val maxDay = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                    for (d in 1..maxDay) {
+                        tempCal.set(Calendar.DAY_OF_MONTH, d)
+                        if (tempCal.get(Calendar.DAY_OF_WEEK) == dayOfWeek) {
+                            occurrences.add(d)
+                        }
+                    }
+                    if (occurrences.size < occurrence) return false
+                    if (targetDay != occurrences[occurrence - 1]) return false
+                    val diffMonths =
+                        (targetYear - remCal.get(Calendar.YEAR)) * 12 + targetMonth -
+                            remCal.get(Calendar.MONTH)
+                    diffMonths % rep.value == 0
+                } else {
+                    if (targetDay != remCal.get(Calendar.DAY_OF_MONTH)) return false
+                    val diffMonths =
+                        (targetYear - remCal.get(Calendar.YEAR)) * 12 + targetMonth -
+                            remCal.get(Calendar.MONTH)
+                    diffMonths % rep.value == 0
+                }
+            }
+            RepetitionTimeUnit.YEARS -> {
+                if (targetMonth != remCal.get(Calendar.MONTH)) return false
+                if (targetDay != remCal.get(Calendar.DAY_OF_MONTH)) return false
+                val diffYears = targetYear - remCal.get(Calendar.YEAR)
+                diffYears % rep.value == 0
+            }
+            else -> false
+        }
+    }
+
     private fun rebuildNotesByDateMap() {
         val noteMap = mutableMapOf<Int, Int>()
         val remSet = mutableSetOf<Int>()
@@ -162,11 +263,18 @@ class CalendarFragment : Fragment(), ItemListener {
 
         for (note in allNotes) {
             for (reminder in note.reminders) {
-                val remCal = Calendar.getInstance().apply { time = reminder.dateTime }
-                if (remCal.get(Calendar.YEAR) == year && remCal.get(Calendar.MONTH) == month) {
-                    val day = remCal.get(Calendar.DAY_OF_MONTH)
-                    noteMap[day] = (noteMap[day] ?: 0) + 1
-                    remSet.add(day)
+                val tempCal =
+                    Calendar.getInstance().apply {
+                        set(Calendar.YEAR, year)
+                        set(Calendar.MONTH, month)
+                        set(Calendar.DAY_OF_MONTH, 1)
+                    }
+                val daysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                for (day in 1..daysInMonth) {
+                    if (reminderOccursOnDate(reminder, year, month, day)) {
+                        noteMap[day] = (noteMap[day] ?: 0) + 1
+                        remSet.add(day)
+                    }
                 }
             }
         }
@@ -421,12 +529,7 @@ class CalendarFragment : Fragment(), ItemListener {
 
         val notesForDay =
             allNotes.filter { note ->
-                note.reminders.any { reminder ->
-                    val cal = Calendar.getInstance().apply { time = reminder.dateTime }
-                    cal.get(Calendar.YEAR) == year &&
-                        cal.get(Calendar.MONTH) == month &&
-                        cal.get(Calendar.DAY_OF_MONTH) == day
-                }
+                note.reminders.any { reminder -> reminderOccursOnDate(reminder, year, month, day) }
             }
 
         val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())

@@ -255,10 +255,11 @@ object Converters {
         val objects =
             reminders.map { reminder ->
                 JSONObject().apply {
-                    put("id", reminder.id) // Store date as long timestamp
-                    put("dateTime", reminder.dateTime.time) // Store date as long timestamp
+                    put("id", reminder.id)
+                    put("dateTime", reminder.dateTime.time)
                     put("repetition", reminder.repetition?.let { repetitionToJsonObject(it) })
                     put("isNotificationVisible", reminder.isNotificationVisible)
+                    put("endDate", reminder.endDate?.time)
                 }
             }
         return JSONArray(objects)
@@ -281,7 +282,8 @@ object Converters {
             val dateTime = Date(jsonObject.getLong("dateTime"))
             val repetition = jsonObject.getSafeString("repetition")?.let { jsonToRepetition(it) }
             val isNotificationVisible = jsonObject.getSafeBoolean("isNotificationVisible")
-            Reminder(id, dateTime, repetition, isNotificationVisible)
+            val endDate = jsonObject.getSafeLong("endDate")?.let { Date(it) }
+            Reminder(id, dateTime, repetition, isNotificationVisible, endDate)
         }
     }
 

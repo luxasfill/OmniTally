@@ -5,58 +5,77 @@
     android:layout_height="wrap_content"
     android:scrollbarAlwaysDrawVerticalTrack="true">
 
-  <RadioGroup
-      android:id="@+id/RepetitionOptions"
+  <LinearLayout
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:paddingTop="2dp"
-      android:paddingStart="16dp"
-      android:paddingEnd="16dp">
+      android:orientation="vertical">
 
-    <RadioButton
-        android:id="@+id/None"
-        android:layout_width="wrap_content"
+    <RadioGroup
+        android:id="@+id/RepetitionOptions"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:checked="true"
-        android:text="@string/none" />
+        android:paddingTop="2dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
 
-    <RadioButton
-        android:id="@+id/Daily"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/daily" />
+      <RadioButton
+          android:id="@+id/None"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:checked="true"
+          android:text="@string/none" />
 
-    <RadioButton
-        android:id="@+id/Weekly"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/weekly" />
+      <RadioButton
+          android:id="@+id/Daily"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/daily" />
 
-    <RadioButton
-        android:id="@+id/Monthly"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/monthly" />
+      <RadioButton
+          android:id="@+id/Weekly"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/weekly" />
 
-    <RadioButton
-        android:id="@+id/Yearly"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/yearly" />
+      <RadioButton
+          android:id="@+id/Monthly"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/monthly" />
 
-    <RadioButton
-        android:id="@+id/MonthlyAdvanced"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        android:text="@string/monthly" />
+      <RadioButton
+          android:id="@+id/Yearly"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/yearly" />
 
-    <RadioButton
-        android:id="@+id/Custom"
-        android:layout_width="wrap_content"
+      <RadioButton
+          android:id="@+id/MonthlyAdvanced"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:visibility="gone"
+          android:text="@string/monthly" />
+
+      <RadioButton
+          android:id="@+id/Custom"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:text="@string/custom" />
+    </RadioGroup>
+
+    <TextView
+        android:id="@+id/EndDateRow"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/custom" />
-  </RadioGroup>
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:text="@string/end_date_never"
+        android:textAppearance="?attr/textAppearanceBodyMedium" />
+  </LinearLayout>
 </ScrollView>
 
 

@@ -44,6 +44,7 @@ import com.philkes.notallyx.utils.canScheduleAlarms
 import com.philkes.notallyx.utils.now
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
 
@@ -53,6 +54,7 @@ class RemindersActivity : LockedActivity<ActivityRemindersBinding>(), ReminderLi
     private val model: NotallyModel by viewModels()
     private lateinit var reminderAdapter: ReminderAdapter
     private var selectedReminder: Reminder? = null
+    private var selectedEndDate: Date? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -208,12 +210,14 @@ class RemindersActivity : LockedActivity<ActivityRemindersBinding>(), ReminderLi
                     override fun onTimeSet(view: TimePicker?, hourOfDay: Int, minute: Int) {
                         calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
                         calendar.set(Calendar.MINUTE, minute)
-                        showRepetitionDialog(reminder, calendar) { updatedRepetition ->
+                        showRepetitionDialog(reminder, calendar) { updatedRepetition, endDate: Date?
+                            ->
                             val updatedReminder =
                                 Reminder(
                                     reminder?.id ?: NEW_REMINDER_ID,
                                     calendar.time,
                                     updatedRepetition,
+                                    endDate = endDate,
                                 )
                             if (reminder != null) {
                                 lifecycleScope.launch { model.updateReminder(updatedReminder) }
@@ -231,8 +235,9 @@ class RemindersActivity : LockedActivity<ActivityRemindersBinding>(), ReminderLi
         reminder: Reminder? = null,
         calendar: Calendar,
         fromCustomRepetitionDialog: Boolean = false,
-        onRepetitionSelected: (Repetition?) -> Unit,
+        onRepetitionSelected: (Repetition?, Date?) -> Unit,
     ) {
+        selectedEndDate = reminder?.endDate
         val dialogView =
             DialogReminderRepetitionBinding.inflate(layoutInflater).apply {
                 if (reminder == null && fromCustomRepetitionDialog) {
@@ -288,13 +293,23 @@ class RemindersActivity : LockedActivity<ActivityRemindersBinding>(), ReminderLi
                             R.id.Custom -> reminder?.repetition?.copy()
                             else -> null
                         }
-                    onRepetitionSelected(repetition)
+                    onRepetitionSelected(repetition, selectedEndDate)
                 }
                 .setNegativeButton(R.string.back) { _, _ ->
                     showTimePickerDialog(reminder, calendar)
                 }
                 .show()
         val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        val updateEndDateRow = {
+            val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            dialogView.EndDateRow.text =
+                if (selectedEndDate != null) {
+                    getString(R.string.end_date_until, sdf.format(selectedEndDate))
+                } else {
+                    getString(R.string.end_date_never)
+                }
+        }
+        updateEndDateRow()
         dialogView.apply {
             Custom.setOnClickListener {
                 dialog.dismiss()
@@ -312,13 +327,30 @@ class RemindersActivity : LockedActivity<ActivityRemindersBinding>(), ReminderLi
                 showMonthlyAdvancedRepetitionDialog(reminder, calendar, onRepetitionSelected)
             }
             Yearly.setOnCheckedEnableButton(positiveButton)
+            EndDateRow.setOnClickListener {
+                DatePickerFragment(selectedEndDate ?: calendar.time) { year, month, day ->
+                        val endCal =
+                            Calendar.getInstance().apply {
+                                set(year, month, day, 23, 59, 59)
+                                set(Calendar.MILLISECOND, 999)
+                            }
+                        selectedEndDate = endCal.time
+                        updateEndDateRow()
+                    }
+                    .show(supportFragmentManager, "endDatePicker")
+            }
+            EndDateRow.setOnLongClickListener {
+                selectedEndDate = null
+                updateEndDateRow()
+                true
+            }
         }
     }
 
     private fun showMonthlyAdvancedRepetitionDialog(
         reminder: Reminder? = null,
         calendar: Calendar,
-        onRepetitionSelected: (Repetition?) -> Unit,
+        onRepetitionSelected: (Repetition?, Date?) -> Unit,
     ) {
         val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
         val dayOfWeekStr = SimpleDateFormat("EEEE", Locale.getDefault()).format(calendar.time)
@@ -371,7 +403,7 @@ class RemindersActivity : LockedActivity<ActivityRemindersBinding>(), ReminderLi
                         5 -> Repetition(1, RepetitionTimeUnit.MONTHS, -1, dayOfWeek)
                         else -> Repetition(1, RepetitionTimeUnit.MONTHS)
                     }
-                onRepetitionSelected(repetition)
+                onRepetitionSelected(repetition, selectedEndDate)
                 dialog.dismiss()
             }
             .setNegativeButton(R.string.back) { dialog, _ ->
@@ -388,7 +420,7 @@ class RemindersActivity : LockedActivity<ActivityRemindersBinding>(), ReminderLi
     private fun showCustomRepetitionDialog(
         reminder: Reminder? = null,
         calendar: Calendar,
-        onRepetitionSelected: (Repetition?) -> Unit,
+        onRepetitionSelected: (Repetition?, Date?) -> Unit,
     ) {
         val dialogView =
             DialogReminderCustomRepetitionBinding.inflate(layoutInflater).apply {
@@ -432,7 +464,8 @@ class RemindersActivity : LockedActivity<ActivityRemindersBinding>(), ReminderLi
                                 return@setPositiveButton
                             }
                             Repetition(value, it)
-                        }
+                        },
+                        selectedEndDate,
                     )
                 }
                 .setBackgroundInsetBottom(0)

@@ -10,6 +10,7 @@ data class Reminder(
     var dateTime: Date,
     var repetition: Repetition?,
     var isNotificationVisible: Boolean = false,
+    var endDate: Date? = null,
 ) : Parcelable
 
 @Parcelize

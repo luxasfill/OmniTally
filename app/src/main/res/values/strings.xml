@@ -167,6 +167,8 @@
     <string name="edit_label">Edit label</string>
     <string name="edit_link">Edit Link</string>
     <string name="edit_reminders">Edit Reminders</string>
+    <string name="end_date_never">Até: nunca</string>
+    <string name="end_date_until">Até: %1$s</string>
     <string name="elapsed">Elapsed</string>
     <string name="empty_labels">No labels yet. Create one\?</string>
     <string name="empty_list">Empty list</string>

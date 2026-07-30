@@ -463,7 +463,7 @@ fun Reminder.lastNotification(before: Date = Date()): Date? {
 
 fun Reminder.nextNotification(from: Date = Date()): Date? {
     if (from.before(dateTime)) {
-        return dateTime
+        return if (endDate != null && dateTime.after(endDate)) null else dateTime
     }
     if (repetition == null) {
         return null
@@ -483,7 +483,8 @@ fun Reminder.nextNotification(from: Date = Date()): Date? {
                     dateTime.toCalendar(),
                 )
             if (targetDate.after(fromCal)) {
-                return targetDate.time
+                return if (endDate != null && targetDate.time.after(endDate)) null
+                else targetDate.time
             }
             next.add(Calendar.MONTH, rep.value)
         }
@@ -500,7 +501,7 @@ fun Reminder.nextNotification(from: Date = Date()): Date? {
         }
     }
 
-    return calendar.time
+    return if (endDate != null && calendar.time.after(endDate)) null else calendar.time
 }
 
 private fun findOccurrenceInMonth(
