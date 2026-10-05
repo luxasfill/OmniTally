@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
+import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.URLSpan
 import android.util.Log
@@ -20,6 +21,8 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams
 import android.view.ViewGroup.VISIBLE
 import android.view.inputmethod.InputMethodManager
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.ColorInt
 import androidx.core.content.ContextCompat
@@ -34,7 +37,9 @@ import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.philkes.notallyx.R
+import com.philkes.notallyx.data.NotallyDatabase
 import com.philkes.notallyx.data.model.NoteViewMode
+import com.philkes.notallyx.data.model.SharedNote
 import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.data.model.generateBaseNote
 import com.philkes.notallyx.databinding.ActivityEditBinding
@@ -43,6 +48,7 @@ import com.philkes.notallyx.presentation.activity.main.MainActivity
 import com.philkes.notallyx.presentation.activity.main.MainActivity.Companion.EXTRA_FRAGMENT_TO_OPEN
 import com.philkes.notallyx.presentation.activity.main.MainActivity.Companion.EXTRA_SKIP_START_VIEW_ON_BACK
 import com.philkes.notallyx.presentation.activity.main.fragment.DisplayLabelFragment.Companion.EXTRA_DISPLAYED_LABEL
+import com.philkes.notallyx.presentation.activity.note.PickNoteActivity.Companion.EXTRA_PICKED_NOTE_ID
 import com.philkes.notallyx.presentation.activity.note.drawing.ViewDrawingActivity
 import com.philkes.notallyx.presentation.activity.note.reminders.RemindersActivity
 import com.philkes.notallyx.presentation.add
@@ -61,6 +67,7 @@ import com.philkes.notallyx.presentation.setTextSizeSp
 import com.philkes.notallyx.presentation.setupProgressDialog
 import com.philkes.notallyx.presentation.setupReminderChip
 import com.philkes.notallyx.presentation.showKeyboard
+import com.philkes.notallyx.presentation.showToast
 import com.philkes.notallyx.presentation.view.misc.NotNullLiveData
 import com.philkes.notallyx.presentation.view.note.ErrorAdapter
 import com.philkes.notallyx.presentation.view.note.action.ActionSelectionBottomSheet
@@ -79,6 +86,7 @@ import com.philkes.notallyx.presentation.viewmodel.preference.editBodySize
 import com.philkes.notallyx.presentation.viewmodel.preference.editTitleSize
 import com.philkes.notallyx.presentation.viewmodel.preference.isAutoSortChecked
 import com.philkes.notallyx.presentation.widget.WidgetProvider
+import com.philkes.notallyx.utils.Cache
 import com.philkes.notallyx.utils.FileError
 import com.philkes.notallyx.utils.changeStatusAndNavigationBarColor
 import com.philkes.notallyx.utils.changehistory.ChangeHistory
@@ -95,6 +103,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEditBinding>() {
@@ -113,6 +122,17 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
 
     internal var colorInt: Int = -1
     protected var inputMethodManager: InputMethodManager? = null
+
+    /** Shared content waiting for the user to choose its destination note. */
+    private var pendingSharedContent: SharedNote? = null
+    private lateinit var pickNoteForShareLauncher: ActivityResultLauncher<Intent>
+
+    /**
+     * Id of the empty note that this activity inserted into the database when it was created for a
+     * shared item. If the user then appends the content to another note instead, this note is
+     * orphaned and has to be deleted.
+     */
+    private var autoCreatedNoteId: Long = 0L
 
     protected val canEdit
         get() = notallyModel.viewMode.value == NoteViewMode.EDIT
@@ -180,6 +200,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         actionHandler.setupActivityResultLaunchers()
+        setupSharedContentDestinationLauncher()
         inputMethodManager =
             ContextCompat.getSystemService(baseContext, InputMethodManager::class.java)
         notallyModel.type = type
@@ -220,10 +241,17 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
             notallyModel.setState(id, intent.data == null)
         }
         if (notallyModel.isNewNote) {
+            // setState inserted an empty note for us; remember it in case the shared content ends
+            // up in another note and this one is left orphaned.
+            autoCreatedNoteId = notallyModel.id
             when (intent.action) {
                 Intent.ACTION_SEND,
                 Intent.ACTION_SEND_MULTIPLE,
-                Intent.ACTION_VIEW -> handleSharedNote()
+                Intent.ACTION_VIEW -> {
+                    // Deferred: the user first chooses whether to create a new note or to append
+                    // the shared content to a note they already have.
+                    pendingSharedContent = intent.generateBaseNote(this)
+                }
 
                 else ->
                     intent.getStringExtra(EXTRA_DISPLAYED_LABEL)?.let {
@@ -247,6 +275,7 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         if (initListeners) configureUI()
         binding.ScrollView.visibility = VISIBLE
         setupEditNoteReminderChip()
+        pendingSharedContent?.let { promptSharedContentDestination() }
     }
 
     override fun onRestart() {
@@ -768,23 +797,130 @@ abstract class EditActivity(private val type: Type) : LockedActivity<ActivityEdi
         )
     }
 
-    private fun handleSharedNote() {
-        val baseNote = intent.generateBaseNote(this)
+    private fun setupSharedContentDestinationLauncher() {
+        pickNoteForShareLauncher =
+            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                val sharedContent = pendingSharedContent
+                pendingSharedContent = null
+                if (result.resultCode != RESULT_OK || sharedContent == null)
+                    return@registerForActivityResult
+                val pickedId = result.data?.getLongExtra(EXTRA_PICKED_NOTE_ID, -1L) ?: -1L
+                if (pickedId == -1L) return@registerForActivityResult
+                lifecycleScope.launch { appendSharedContentTo(pickedId, sharedContent) }
+            }
+    }
+
+    private fun promptSharedContentDestination() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.shared_content_destination)
+            .setMessage(R.string.shared_content_destination_message)
+            .setPositiveButton(R.string.shared_content_new_note) { _, _ ->
+                pendingSharedContent?.let { shared ->
+                    pendingSharedContent = null
+                    applySharedContent(shared, isNewNote = true)
+                    // The body EditText is only updated from the model by setStateFromModel().
+                    setStateFromModel(null)
+                }
+            }
+            .setNeutralButton(R.string.shared_content_existing_note) { _, _ ->
+                pickNoteForShareLauncher.launch(Intent(this, PickNoteActivity::class.java))
+            }
+            .setCancelButton()
+            .show()
+    }
+
+    /**
+     * Loads the note with [noteId] and appends [sharedContent] to its body and attachments.
+     *
+     * [notallyModel.setState] does not restore the note type, it always keeps the type of this
+     * activity. The loaded note must therefore be checked against [BaseNote.type] itself, otherwise
+     * a list note would be rewritten as a text note and its items would be lost.
+     */
+    private suspend fun appendSharedContentTo(noteId: Long, sharedContent: SharedNote) {
+        val pickedNote =
+            withContext(Dispatchers.IO) {
+                Cache.list.find { it.id == noteId }
+                    ?: NotallyDatabase.getDatabase(application).value.getBaseNoteDao().get(noteId)
+            }
+        if (pickedNote == null) {
+            showToast(R.string.cant_find_note)
+            return
+        }
+        if (pickedNote.type != type) {
+            // This editor cannot render the picked note (e.g. a list note picked by the note
+            // editor), so the content goes into a new note instead of corrupting the list note.
+            showToast(R.string.shared_content_list_not_supported)
+            deleteAutoCreatedNote()
+            resetToNewNote()
+            applySharedContent(sharedContent, isNewNote = true)
+            setStateFromModel(null)
+            return
+        }
+        changeHistory.reset()
+        // The empty note created for this shared item is not used anymore.
+        deleteAutoCreatedNote()
+        notallyModel.setState(noteId)
+        applySharedContent(sharedContent, isNewNote = false)
+        setStateFromModel(null)
+        saveNote()
+    }
+
+    /**
+     * Deletes the empty note that was inserted when this activity was created for a shared item.
+     */
+    private suspend fun deleteAutoCreatedNote() {
+        val id = autoCreatedNoteId
+        autoCreatedNoteId = 0L
+        if (id == 0L) return
+        withContext(Dispatchers.IO) {
+            NotallyDatabase.getDatabase(application).value.getBaseNoteDao().delete(id)
+        }
+        WidgetProvider.sendBroadcast(application, longArrayOf(id))
+    }
+
+    /** Resets the model to an empty note. Also used when the picked note cannot be edited here. */
+    private fun resetToNewNote() {
+        changeHistory.reset()
         notallyModel.apply {
-            body =
-                Editable.Factory.getInstance().newEditable(baseNote.text).apply {
+            id = 0L
+            isNewNote = true
+            title = ""
+            body = SpannableStringBuilder()
+            items.clear()
+            labels.clear()
+            images.value = emptyList()
+            files.value = emptyList()
+            audios.value = emptyList()
+            drawings.value = emptyList()
+            reminders.value = emptyList()
+            originalNote = null
+        }
+    }
+
+    private fun applySharedContent(sharedContent: SharedNote, isNewNote: Boolean) {
+        notallyModel.apply {
+            val incoming =
+                Editable.Factory.getInstance().newEditable(sharedContent.text).apply {
                     findWebUrls().forEach { (urlStart, urlEnd) ->
                         setSpan(
-                            URLSpan(baseNote.text.substring(urlStart, urlEnd)),
+                            URLSpan(sharedContent.text.substring(urlStart, urlEnd)),
                             urlStart,
                             urlEnd,
                             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
                         )
                     }
                 }
-            title = baseNote.title
-            addImages(baseNote.images.map { Uri.parse(it.originalName) }.toTypedArray())
-            addFiles(baseNote.files.map { Uri.parse(it.originalName) }.toTypedArray())
+            if (isNewNote) {
+                title = sharedContent.title
+                body = incoming
+            } else {
+                if (body.isNotEmpty()) {
+                    body.append("\n\n")
+                }
+                body.append(incoming)
+            }
+            addImages(sharedContent.images.map { Uri.parse(it.originalName) }.toTypedArray())
+            addFiles(sharedContent.files.map { Uri.parse(it.originalName) }.toTypedArray())
         }
     }
 

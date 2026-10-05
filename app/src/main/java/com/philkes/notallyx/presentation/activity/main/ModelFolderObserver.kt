@@ -63,12 +63,13 @@ class ModelFolderObserver(
         menu.add(R.string.duplicate, R.drawable.content_copy) {
             baseModel.duplicateSelectedBaseNotes()
         }
+        val merge = menu.addMerge()
         menu.add(R.string.archive, R.drawable.archive) { moveNotes(Folder.ARCHIVED) }
         menu.addChangeColor()
         val pinnedToStatus = menu.addPinnedToStatus()
         val share = menu.addShare()
         menu.addExportMenu()
-        model.actionMode.count.observeCountAndPinned(activity, share, pinned, pinnedToStatus)
+        model.actionMode.count.observeCountAndPinned(activity, share, pinned, pinnedToStatus, merge)
     }
 
     private fun initArchivedFolderMenu() {
@@ -79,12 +80,13 @@ class ModelFolderObserver(
         menu.add(R.string.duplicate, R.drawable.content_copy) {
             baseModel.duplicateSelectedBaseNotes()
         }
+        val merge = menu.addMerge()
         menu.addExportMenu(MenuItem.SHOW_AS_ACTION_ALWAYS)
         val pinned = menu.addPinned()
         menu.addLabels()
         menu.addChangeColor()
         val share = menu.addShare()
-        model.actionMode.count.observeCountAndPinned(activity, share, pinned, null)
+        model.actionMode.count.observeCountAndPinned(activity, share, pinned, null, merge)
     }
 
     private fun initDeletedFolderMenu() {
@@ -157,6 +159,10 @@ class ModelFolderObserver(
         return add(R.string.share, R.drawable.share, showAsAction) { share() }
     }
 
+    private fun Menu.addMerge(showAsAction: Int = MenuItem.SHOW_AS_ACTION_NEVER): MenuItem {
+        return add(R.string.merge_notes, R.drawable.merge_notes, showAsAction) { merge() }
+    }
+
     private fun Menu.addExportMenu(showAsAction: Int = MenuItem.SHOW_AS_ACTION_IF_ROOM): MenuItem {
         return addSubMenu(R.string.export)
             .apply {
@@ -193,8 +199,10 @@ class ModelFolderObserver(
         share: MenuItem,
         pinned: MenuItem,
         pinnedToStatus: MenuItem?,
+        merge: MenuItem? = null,
     ) {
-        observeCount(lifecycleOwner, share) {
+        observeCount(lifecycleOwner, share) { count ->
+            merge?.setVisible(count > 1)
             val baseNotes = model.actionMode.selectedNotes.values
             if (baseNotes.any { !it.pinned }) {
                 pinned.setTitle(R.string.pin).setIcon(R.drawable.pin).onClick {
@@ -252,6 +260,17 @@ class ModelFolderObserver(
     internal fun share() {
         val baseNote = baseModel.actionMode.getFirstNote()
         activity.shareNote(baseNote)
+    }
+
+    internal fun merge() {
+        if (baseModel.actionMode.selectedNotes.size < 2) return
+        val count = baseModel.actionMode.selectedNotes.size
+        MaterialAlertDialogBuilder(activity)
+            .setTitle(activity.getQuantityString(R.plurals.merge_notes_confirm, count, count))
+            .setMessage(R.string.merge_notes_hint)
+            .setPositiveButton(R.string.merge_notes) { _, _ -> baseModel.mergeSelectedBaseNotes() }
+            .setCancelButton()
+            .show()
     }
 
     internal fun deleteForever() {

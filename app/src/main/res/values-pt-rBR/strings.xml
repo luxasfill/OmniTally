@@ -229,6 +229,21 @@
     <string name="max_lines_to_display">Máximo de linhas a serem exibidos nas notas</string>
     <string name="max_lines_to_display_title">Máximo de linhas a exibir no título</string>
     <string name="medium">Médio</string>
+    <string name="merge_notes">Fundir</string>
+    <plurals name="merge_notes_confirm">
+        <item quantity="one">Fundir %1$d nota em uma só\?</item>
+        <item quantity="other">Fundir %1$d notas em uma só\?</item>
+    </plurals>
+    <plurals name="merged_notes">
+        <item quantity="one">%1$d nota fundida</item>
+        <item quantity="other">%1$d notas fundidas</item>
+    </plurals>
+    <string name="merge_notes_hint">As notas selecionadas serão combinadas em uma única nota, na ordem de seleção. As notas originais serão removidas.</string>
+    <string name="shared_content_destination">Adicionar conteúdo compartilhado</string>
+    <string name="shared_content_destination_message">Criar uma nova nota, ou adicionar este conteúdo a uma nota que você já tem\?</string>
+    <string name="shared_content_new_note">Nova nota</string>
+    <string name="shared_content_existing_note">Adicionar a uma nota existente</string>
+    <string name="shared_content_list_not_supported">Não é possível adicionar conteúdo a uma nota de lista. O conteúdo compartilhado foi adicionado a uma nova nota.</string>
     <string name="minutes">Minutos</string>
     <string name="modified_date">Modificado</string>
     <string name="monospace">Monoespaçado</string>

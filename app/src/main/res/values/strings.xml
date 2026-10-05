@@ -267,6 +267,21 @@
     <string name="max_lines_to_display">Max lines to display in note</string>
     <string name="max_lines_to_display_title">Max lines to display in title</string>
     <string name="medium">Medium</string>
+    <string name="merge_notes">Merge</string>
+    <plurals name="merge_notes_confirm">
+        <item quantity="one">Merge %1$d note into one?</item>
+        <item quantity="other">Merge %1$d notes into one?</item>
+    </plurals>
+    <plurals name="merged_notes">
+        <item quantity="one">%1$d note merged</item>
+        <item quantity="other">%1$d notes merged</item>
+    </plurals>
+    <string name="merge_notes_hint">The selected notes are combined into a single note, in selection order. The original notes are removed.</string>
+    <string name="shared_content_destination">Add shared content</string>
+    <string name="shared_content_destination_message">Create a new note, or add this content to a note you already have\?</string>
+    <string name="shared_content_new_note">New note</string>
+    <string name="shared_content_existing_note">Add to existing note</string>
+    <string name="shared_content_list_not_supported">List notes can\'t be extended this way. The shared content was added to a new note instead.</string>
     <string name="migrating_data">Migrating data…</string>
     <string name="migration_moving_attachments">Moving attachments…</string>
     <string name="migration_splitting_notes">Splitting oversized notes…</string>

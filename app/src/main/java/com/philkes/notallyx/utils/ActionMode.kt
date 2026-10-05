@@ -9,7 +9,7 @@ class ActionMode {
     val enabled = NotNullLiveData(false)
     val loading = NotNullLiveData(false)
     val count = NotNullLiveData(0)
-    val selectedNotes = HashMap<Long, BaseNote>()
+    val selectedNotes = LinkedHashMap<Long, BaseNote>()
     val selectedIds = selectedNotes.keys
     val closeListener = MutableLiveData<Event<Set<Long>>>()
     var addListener: (() -> Unit)? = null

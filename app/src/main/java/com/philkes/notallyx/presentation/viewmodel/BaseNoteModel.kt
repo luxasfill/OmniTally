@@ -40,7 +40,11 @@ import com.philkes.notallyx.data.model.Folder
 import com.philkes.notallyx.data.model.Header
 import com.philkes.notallyx.data.model.Item
 import com.philkes.notallyx.data.model.Label
+import com.philkes.notallyx.data.model.ListItem
+import com.philkes.notallyx.data.model.Reminder
 import com.philkes.notallyx.data.model.SearchResult
+import com.philkes.notallyx.data.model.SpanRepresentation
+import com.philkes.notallyx.data.model.Type
 import com.philkes.notallyx.data.model.deepCopy
 import com.philkes.notallyx.presentation.activity.main.fragment.settings.SettingsFragment.Companion.EXTRA_SHOW_IMPORT_BACKUPS_FOLDER
 import com.philkes.notallyx.presentation.activity.note.refreshStatusBarPin
@@ -60,6 +64,7 @@ import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferenc
 import com.philkes.notallyx.presentation.viewmodel.preference.OmniTallyPreferences.Companion.START_VIEW_UNLABELED
 import com.philkes.notallyx.presentation.viewmodel.preference.Theme
 import com.philkes.notallyx.presentation.viewmodel.progress.ExportNotesProgress
+import com.philkes.notallyx.presentation.widget.WidgetProvider
 import com.philkes.notallyx.utils.ActionMode
 import com.philkes.notallyx.utils.Cache
 import com.philkes.notallyx.utils.MIME_TYPE_JSON
@@ -768,6 +773,109 @@ class BaseNoteModel(private val app: Application) : AndroidViewModel(app) {
             app.showToast(app.getQuantityString(R.plurals.duplicates, selected.size))
         }
     }
+
+    /**
+     * Combines [notes] (in the given order) into a single new note. Returns the id of the merged
+     * note together with the consumed source notes, so the caller can offer an undo.
+     *
+     * Attachments are stored in flat, app-wide directories with globally unique names, so merging
+     * is a metadata-only operation: the attachment lists are simply concatenated and no file is
+     * copied. For the same reason the caller must not delete attachments of the source notes.
+     */
+    suspend fun mergeNotes(notes: List<BaseNote>): Pair<Long, List<BaseNote>> {
+        require(notes.size >= 2) { "mergeNotes requires at least two notes" }
+        val first = notes.first()
+        val allAreLists = notes.all { it.type == Type.LIST }
+        val separator = "\n\n"
+
+        val body = StringBuilder()
+        val spans = ArrayList<SpanRepresentation>()
+        val items = ArrayList<ListItem>()
+        val images = ArrayList<FileAttachment>()
+        val files = ArrayList<FileAttachment>()
+        val audios = ArrayList<Audio>()
+        val drawings = ArrayList<FileAttachment>()
+        val labels = LinkedHashSet<String>()
+        val reminders = ArrayList<Reminder>()
+
+        notes.forEachIndexed { index, note ->
+            val noteBody = if (allAreLists) note.body else note.body.ifEmpty { note.itemsToText() }
+            if (index > 0 && noteBody.isNotEmpty() && body.isNotEmpty()) {
+                body.append(separator)
+            }
+            val offset = body.length
+            note.spans.forEach { span ->
+                spans.add(span.copy(start = span.start + offset, end = span.end + offset))
+            }
+            body.append(noteBody)
+            note.items.forEach { items.add(it.clone() as ListItem) }
+            images.addAll(note.images)
+            files.addAll(note.files)
+            audios.addAll(note.audios)
+            drawings.addAll(note.drawings)
+            labels.addAll(note.labels)
+            reminders.addAll(note.reminders.map { it.copy() })
+        }
+        // Reminder ids are sequential per note, so the merged note needs them reassigned.
+        reminders.indices.forEach { index -> reminders[index].id = index.toLong() }
+
+        val now = System.currentTimeMillis()
+        val merged =
+            BaseNote(
+                id = 0L,
+                type = if (allAreLists) Type.LIST else Type.NOTE,
+                folder = first.folder,
+                color = first.color,
+                title = notes.firstOrNull { it.title.isNotEmpty() }?.title ?: first.title,
+                pinned = notes.any { it.pinned },
+                timestamp = notes.minOf { it.timestamp },
+                modifiedTimestamp = now,
+                labels = labels.toList(),
+                body = body.toString(),
+                spans = spans,
+                items = if (allAreLists) items else emptyList(),
+                images = images,
+                files = files,
+                audios = audios,
+                reminders = reminders,
+                viewMode = first.viewMode,
+                isPinnedToStatus = notes.any { it.isPinnedToStatus },
+                drawings = drawings,
+            )
+        val mergedId = baseNoteDao.insertSafe(app, merged)
+        return mergedId to notes
+    }
+
+    fun mergeSelectedBaseNotes() {
+        if (actionMode.selectedNotes.size < 2) return
+        val selected = actionMode.selectedNotes.values.toList()
+        actionMode.close(false)
+        viewModelScope.launch {
+            try {
+                val (mergedId, mergedNotes) = mergeNotes(selected)
+                // Only the database rows are removed. The attachment files are still referenced by
+                // the merged note, so they must not be deleted.
+                withContext(Dispatchers.IO) {
+                    app.cancelPinAndReminders(mergedNotes)
+                    baseNoteDao.delete(mergedNotes.map { it.id }.toLongArray())
+                }
+                WidgetProvider.sendBroadcast(app, longArrayOf(mergedId))
+                app.showToast(app.getQuantityString(R.plurals.merged_notes, selected.size))
+            } catch (e: Exception) {
+                app.log(TAG, msg = "mergeSelectedBaseNotes failed", throwable = e)
+                app.showToast(R.string.unknown_error)
+            }
+        }
+    }
+
+    private fun BaseNote.itemsToText(): String =
+        items.joinToString(separator = "\n") { item ->
+            buildString {
+                repeat(if (item.isChild) 1 else 0) { append("    ") }
+                if (item.checked) append("[x] ") else append("[ ] ")
+                append(item.body)
+            }
+        }
 
     suspend fun getAllLabels() = withContext(Dispatchers.IO) { labelDao.getArrayOfAll() }
 
